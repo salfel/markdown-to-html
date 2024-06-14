@@ -35,6 +35,7 @@ impl Lexer {
                 let mut last: char = ' ';
 
                 for char in content.chars() {
+                    // insert word into modifiers
                     if !MARKERS.contains(&char) {
                         last = char;
                         let value = modifiers.last_mut();
@@ -49,6 +50,8 @@ impl Lexer {
                         }
                         continue;
                     }
+
+                    // insert modifiers into vec
                     if char == last {
                         let value = modifiers.last_mut();
                         if let Some(modifier) = value {
@@ -59,8 +62,6 @@ impl Lexer {
                         last = char;
                     }
                 }
-
-                println!("{}", modifiers.len());
 
                 for modifier in modifiers {
                     tokens.push(match modifier {
