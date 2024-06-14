@@ -2,6 +2,7 @@ use crate::lexer::Lexer;
 use std::{fs, process};
 
 pub mod lexer;
+pub mod parser;
 
 fn main() {
     let filepath = "./input.md";
