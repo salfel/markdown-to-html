@@ -22,6 +22,12 @@ impl Parser {
                     Token::Heading1 => {
                         Statement::Heading1(Self::parse_expression(iterator.borrow_mut(), None))
                     }
+                    Token::Asterisk(_) => {
+                        Statement::Plain(Self::parse_expression(iterator.borrow_mut(), None))
+                    }
+                    Token::Underscore(_) => {
+                        Statement::Plain(Self::parse_expression(iterator.borrow_mut(), None))
+                    }
                     Token::Word(content) => Statement::Plain(Self::parse_expression(
                         iterator.borrow_mut(),
                         Some(content),

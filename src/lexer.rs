@@ -2,6 +2,8 @@ pub struct Lexer {
     lines: Vec<String>,
 }
 
+const MARKERS: &[char] = &['*', '_'];
+
 impl Lexer {
     pub fn new(input: String) -> Self {
         Lexer {
@@ -10,16 +12,13 @@ impl Lexer {
     }
 
     pub fn get_tokens(self) -> Vec<Vec<Token>> {
-        let mut lines = vec![];
+        let mut lines: Vec<Vec<Token>> = vec![];
 
         for line in self.lines {
-            let mut tokens = vec![];
+            let mut tokens: Vec<Token> = vec![];
 
             for token in line.split(' ').filter(|token| !token.is_empty()) {
-                tokens.push(match token {
-                    "#" => Token::Heading1,
-                    content => Token::Word(content.to_string()),
-                });
+                Self::parse_word(&mut tokens, token);
             }
 
             lines.push(tokens);
@@ -27,11 +26,59 @@ impl Lexer {
 
         lines
     }
+
+    fn parse_word(tokens: &mut Vec<Token>, token: &str) {
+        match token {
+            "#" => tokens.push(Token::Heading1),
+            content => {
+                let mut modifiers: Vec<(String, u32)> = vec![];
+                let mut last: char = ' ';
+
+                for char in content.chars() {
+                    if !MARKERS.contains(&char) {
+                        last = char;
+                        let value = modifiers.last_mut();
+                        if let Some(token) = value {
+                            if token.1 == 0 {
+                                token.0 += &char.to_string();
+                            } else {
+                                modifiers.push((char.to_string(), 0));
+                            }
+                        } else {
+                            modifiers.push((char.to_string(), 0));
+                        }
+                        continue;
+                    }
+                    if char == last {
+                        let value = modifiers.last_mut();
+                        if let Some(modifier) = value {
+                            *modifier = (char.to_string(), modifier.1 + 1);
+                        }
+                    } else {
+                        modifiers.push((char.to_string(), 1));
+                        last = char;
+                    }
+                }
+
+                println!("{}", modifiers.len());
+
+                for modifier in modifiers {
+                    tokens.push(match modifier {
+                        (char, count) if char == *"*" => Token::Asterisk(count),
+                        (char, count) if char == *"_" => Token::Underscore(count),
+                        (word, _) => Token::Word(word),
+                    });
+                }
+            }
+        }
+    }
 }
 
 #[derive(PartialEq, Debug)]
 pub enum Token {
     Heading1,
+    Asterisk(u32),
+    Underscore(u32),
     Word(String),
 }
 
@@ -41,7 +88,8 @@ mod tests {
 
     #[test]
     fn parses_tokens() {
-        let input = "# something\n# something else";
+        let input = "# **something**
+# **__something__** else";
 
         let tokenizer = Lexer::new(input.to_string());
         let tokens = tokenizer.get_tokens();
@@ -49,11 +97,20 @@ mod tests {
         assert_eq!(
             tokens,
             vec![
-                vec![Token::Heading1, Token::Word("something".to_string()),],
                 vec![
                     Token::Heading1,
+                    Token::Asterisk(2),
                     Token::Word("something".to_string()),
-                    Token::Word("else".to_string())
+                    Token::Asterisk(2),
+                ],
+                vec![
+                    Token::Heading1,
+                    Token::Asterisk(2),
+                    Token::Underscore(2),
+                    Token::Word("something".to_string()),
+                    Token::Underscore(2),
+                    Token::Asterisk(2),
+                    Token::Word("else".to_string()),
                 ]
             ]
         );
