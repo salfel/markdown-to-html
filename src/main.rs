@@ -1,6 +1,7 @@
 use crate::lexer::Lexer;
 use std::{fs, process};
 
+pub mod evaluater;
 pub mod lexer;
 pub mod parser;
 
