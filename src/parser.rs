@@ -22,9 +22,10 @@ impl Parser {
 
             while let Some(value) = iterator.next() {
                 let statement = match value {
-                    Token::Heading1 => {
-                        Statement::Heading1(Self::parse_expression(iterator.borrow_mut(), None))
-                    }
+                    Token::Heading1 => Statement::Heading1(Self::parse_expression(
+                        iterator.borrow_mut(),
+                        Some(Token::Heading1),
+                    )),
                     Token::Asterisk(count) => Statement::Plain(Self::parse_expression(
                         iterator.borrow_mut(),
                         Some(Token::Asterisk(count)),
@@ -55,67 +56,85 @@ impl Parser {
                 let mut tokens = vec![];
                 let mut right_count = 0;
 
-                for token in iterator {
+                loop {
+                    let token = iterator.next();
                     match token {
-                        Token::Asterisk(count) => {
+                        Some(Token::Asterisk(count)) => {
                             right_count = count;
                             break;
                         }
-                        _ => {
-                            tokens.push(token);
-                        }
+                        Some(token) => tokens.push(token),
+                        None => break,
                     }
                 }
 
-                for current in &tokens {
-                    match &current {
-                        Token::Underscore(_) => println!("underscore"),
-                        Token::Asterisk(_) => println!("asterisk"),
-                        Token::Word(content) => println!("word: {}", &content),
-                        Token::Heading1 => println!("heading"),
-                    }
+                let next = iterator.next();
+                let children = Self::parse_children(tokens, left_count, right_count, "*");
+
+                match next {
+                    Some(token) => Expression::Vec(vec![
+                        children,
+                        Self::parse_expression(iterator, Some(token)),
+                    ]),
+                    None => children,
                 }
-                Self::parse_children(tokens, left_count, right_count, "*")
             }
             Some(Token::Underscore(left_count)) => {
                 let mut tokens = vec![];
                 let mut right_count = 0;
 
-                for token in iterator {
+                loop {
+                    let token = iterator.next();
                     match token {
-                        Token::Underscore(count) => {
+                        Some(Token::Underscore(count)) => {
                             right_count = count;
                             break;
                         }
-                        _ => {
-                            tokens.push(token);
-                        }
+                        Some(token) => tokens.push(token),
+                        None => break,
                     }
                 }
 
-                Self::parse_children(tokens, left_count, right_count, "_")
+                let next = iterator.next();
+                let children = Self::parse_children(tokens, left_count, right_count, "_");
+
+                match next {
+                    Some(token) => Expression::Vec(vec![
+                        children,
+                        Self::parse_expression(iterator, Some(token)),
+                    ]),
+                    None => children,
+                }
             }
             Some(Token::Word(content)) => {
                 let mut tokens = vec![content];
-                while let Some(Token::Word(content)) = iterator.next() {
-                    tokens.push(content);
+                let mut next = None;
+
+                loop {
+                    let value = iterator.next();
+                    match value {
+                        Some(Token::Word(content)) => tokens.push(content),
+                        Some(token) => {
+                            next = Some(token);
+                            break;
+                        }
+                        None => break,
+                    }
                 }
 
-                Expression::Text(tokens.join(" "))
+                match next {
+                    Some(token) => Expression::Vec(vec![
+                        Expression::Text(tokens.join(" ")),
+                        Self::parse_expression(iterator, Some(token)),
+                    ]),
+                    None => Expression::Text(tokens.join(" ")),
+                }
             }
             Some(Token::Heading1) => {
-                let mut tokens = vec![String::from("#")];
-
-                while let Some(Token::Word(content)) = iterator.next() {
-                    tokens.push(content);
-                }
-
-                Expression::Text(tokens.join(" "))
+                let token = iterator.next();
+                Self::parse_expression(iterator.borrow_mut(), token)
             }
-            None => {
-                let current = iterator.next();
-                Self::parse_expression(iterator, current)
-            }
+            None => Expression::Text(String::new()),
         }
     }
 
@@ -136,15 +155,6 @@ impl Parser {
             String::from(character),
             (right_count - min) as usize,
         );
-
-        for token in &tokens {
-            match &token {
-                Token::Underscore(_) => println!("underscore"),
-                Token::Asterisk(_) => println!("asterisk"),
-                Token::Word(content) => println!("word: '{}'", &content),
-                Token::Heading1 => println!("heading"),
-            }
-        }
 
         let mut iterator = tokens.into_iter();
         let current = iterator.next();
@@ -195,6 +205,7 @@ impl Parser {
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
+    Vec(Vec<Expression>),
     Italic(Box<Expression>),
     Bold(Box<Expression>),
     BoldItalic(Box<Expression>),
@@ -220,8 +231,8 @@ mod tests {
     fn parses_tokens() {
         let statements = setup_parser(String::from(
             "# **something**
-_something_
-**_something else_**",
+    _something_
+    **_something else_**",
         ));
 
         assert_eq!(
@@ -241,12 +252,25 @@ _something_
     }
 
     #[test]
+    fn check_vec() {
+        let statements = setup_parser(String::from("# something **else**"));
+
+        assert_eq!(
+            statements,
+            vec![Statement::Heading1(Expression::Vec(vec![
+                Expression::Text(String::from("something")),
+                Expression::Bold(Box::new(Expression::Text(String::from("else"))))
+            ]))]
+        )
+    }
+
+    #[test]
     fn check_conditions() {
         let statements = setup_parser(String::from(
             "*something*
-**something**
-***something***
-**something",
+    **something**
+    ***something***
+    **something",
         ));
 
         assert_eq!(
@@ -270,8 +294,8 @@ _something_
     fn check_overflow() {
         let statements = setup_parser(String::from(
             "**something*
-*something**
-***something**",
+    *something**
+    ***something**",
         ));
 
         assert_eq!(

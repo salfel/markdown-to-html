@@ -46,6 +46,15 @@ impl Evaluator {
                     Self::eval_expression(*expression)
                 )
             }
+            Expression::Vec(expressions) => {
+                let mut contents = vec![];
+
+                for expression in expressions {
+                    contents.push(Self::eval_expression(expression));
+                }
+
+                contents.join(" ")
+            }
         }
     }
 }
@@ -69,5 +78,13 @@ plain
             result,
             "<h1>heading</h1><p>plain</p><h1><strong>heading</strong></h1><h1><i>heading</i></h1><p><strong><i>paragraph</i></strong></p>"
         )
+    }
+
+    #[test]
+    fn evalutates_next() {
+        let evaluator = Evaluator::new(String::from("**something** else"));
+        let result = evaluator.eval();
+
+        assert_eq!(result, "<p><strong>something</strong> else</p>")
     }
 }
