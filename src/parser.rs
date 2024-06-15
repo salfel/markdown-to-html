@@ -1,20 +1,23 @@
-use crate::lexer::Token;
+use crate::lexer::{Lexer, Token};
 use std::borrow::BorrowMut;
 use std::cmp;
 
 pub struct Parser {
-    lines: Vec<Vec<Token>>,
+    tokens: Vec<Vec<Token>>,
 }
 
 impl Parser {
-    pub fn new(lines: Vec<Vec<Token>>) -> Self {
-        Parser { lines }
+    pub fn new(input: String) -> Self {
+        let lexer = Lexer::new(input);
+        let tokens = lexer.get_tokens();
+
+        Parser { tokens }
     }
 
     pub fn get_statements(self) -> Vec<Statement> {
         let mut statements = vec![];
 
-        for line in self.lines {
+        for line in self.tokens {
             let mut iterator = line.into_iter();
 
             while let Some(value) = iterator.next() {
@@ -207,13 +210,9 @@ pub enum Statement {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lexer::Lexer;
 
     fn setup_parser(input: String) -> Vec<Statement> {
-        let lexer = Lexer::new(input);
-        let tokens = lexer.get_tokens();
-
-        let parser = Parser::new(tokens);
+        let parser = Parser::new(input);
         parser.get_statements()
     }
 
