@@ -64,6 +64,7 @@ impl Evaluator {
 
                 contents.join(" ")
             }
+            Expression::None => String::new(),
         }
     }
 }

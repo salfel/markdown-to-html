@@ -1,9 +1,8 @@
 use crate::lexer::{Lexer, Token};
-use std::borrow::BorrowMut;
-use std::cmp;
+use std::{borrow::BorrowMut, cmp, vec};
 
 pub struct Parser {
-    tokens: Vec<Vec<Token>>,
+    tokens: Option<Vec<Token>>,
 }
 
 impl Parser {
@@ -11,58 +10,50 @@ impl Parser {
         let lexer = Lexer::new(input);
         let tokens = lexer.get_tokens();
 
-        Parser { tokens }
+        Parser {
+            tokens: Some(tokens),
+        }
     }
 
-    pub fn get_statements(self) -> Vec<Statement> {
+    pub fn get_statements(mut self) -> Vec<Statement> {
         let mut statements = vec![];
+        let mut iterator = self.tokens.take().unwrap().into_iter();
 
-        for line in self.tokens {
-            let mut iterator = line.into_iter();
+        while let Some(value) = iterator.next() {
+            let statement = match value {
+                Token::Heading1 => {
+                    Statement::Heading1(self.parse_expression(iterator.borrow_mut(), None))
+                }
+                Token::Heading2 => {
+                    Statement::Heading2(self.parse_expression(iterator.borrow_mut(), None))
+                }
+                Token::Heading3 => {
+                    Statement::Heading3(self.parse_expression(iterator.borrow_mut(), None))
+                }
+                Token::Asterisk(count) => Statement::Plain(
+                    self.parse_expression(iterator.borrow_mut(), Some(Token::Asterisk(count))),
+                ),
+                Token::Underscore(count) => Statement::Plain(
+                    self.parse_expression(iterator.borrow_mut(), Some(Token::Underscore(count))),
+                ),
+                Token::OrderedListItem(num) => Statement::OrderedList((
+                    num,
+                    self.parse_expression(iterator.borrow_mut(), None),
+                )),
+                Token::Word(content) => Statement::Plain(
+                    self.parse_expression(iterator.borrow_mut(), Some(Token::Word(content))),
+                ),
+                Token::NewLine => continue,
+            };
 
-            while let Some(value) = iterator.next() {
-                let statement = match value {
-                    Token::Heading1 => Statement::Heading1(Self::parse_expression(
-                        iterator.borrow_mut(),
-                        Some(Token::Heading1),
-                    )),
-                    Token::Heading2 => Statement::Heading2(Self::parse_expression(
-                        iterator.borrow_mut(),
-                        Some(Token::Heading1),
-                    )),
-                    Token::Heading3 => Statement::Heading3(Self::parse_expression(
-                        iterator.borrow_mut(),
-                        Some(Token::Heading1),
-                    )),
-                    Token::Asterisk(count) => Statement::Plain(Self::parse_expression(
-                        iterator.borrow_mut(),
-                        Some(Token::Asterisk(count)),
-                    )),
-                    Token::Underscore(count) => Statement::Plain(Self::parse_expression(
-                        iterator.borrow_mut(),
-                        Some(Token::Underscore(count)),
-                    )),
-                    Token::OrderedListItem(num) => Statement::OrderedList((
-                        num,
-                        Self::parse_expression(
-                            iterator.borrow_mut(),
-                            Some(Token::OrderedListItem(num)),
-                        ),
-                    )),
-                    Token::Word(content) => Statement::Plain(Self::parse_expression(
-                        iterator.borrow_mut(),
-                        Some(Token::Word(content)),
-                    )),
-                };
-
-                statements.push(statement);
-            }
+            statements.push(statement);
         }
 
         statements
     }
 
     fn parse_expression(
+        &mut self,
         iterator: &mut dyn Iterator<Item = Token>,
         current: Option<Token>,
     ) -> Expression {
@@ -78,21 +69,16 @@ impl Parser {
                             right_count = count;
                             break;
                         }
+                        Some(Token::NewLine) => break,
                         Some(token) => tokens.push(token),
                         None => break,
                     }
                 }
 
                 let next = iterator.next();
-                let children = Self::parse_children(tokens, left_count, right_count, "*");
+                let children = self.parse_children(tokens, left_count, right_count, "*");
 
-                match next {
-                    Some(token) => Expression::Vec(vec![
-                        children,
-                        Self::parse_expression(iterator, Some(token)),
-                    ]),
-                    None => children,
-                }
+                self.parse_vec(iterator, next, children)
             }
             Some(Token::Underscore(left_count)) => {
                 let mut tokens = vec![];
@@ -105,21 +91,16 @@ impl Parser {
                             right_count = count;
                             break;
                         }
+                        Some(Token::NewLine) => break,
                         Some(token) => tokens.push(token),
                         None => break,
                     }
                 }
 
                 let next = iterator.next();
-                let children = Self::parse_children(tokens, left_count, right_count, "_");
+                let children = self.parse_children(tokens, left_count, right_count, "_");
 
-                match next {
-                    Some(token) => Expression::Vec(vec![
-                        children,
-                        Self::parse_expression(iterator, Some(token)),
-                    ]),
-                    None => children,
-                }
+                self.parse_vec(iterator, next, children)
             }
             Some(Token::Word(content)) => {
                 let mut tokens = vec![content];
@@ -129,6 +110,7 @@ impl Parser {
                     let value = iterator.next();
                     match value {
                         Some(Token::Word(content)) => tokens.push(content),
+                        Some(Token::NewLine) => break,
                         Some(token) => {
                             next = Some(token);
                             break;
@@ -137,23 +119,76 @@ impl Parser {
                     }
                 }
 
-                match next {
-                    Some(token) => Expression::Vec(vec![
-                        Expression::Text(tokens.join(" ")),
-                        Self::parse_expression(iterator, Some(token)),
-                    ]),
-                    None => Expression::Text(tokens.join(" ")),
+                self.parse_vec(iterator, next, Expression::Text(tokens.join(" ")))
+            }
+            Some(Token::Heading1) => {
+                let token = iterator.next();
+
+                Expression::Vec(vec![
+                    Expression::Text(String::from("#")),
+                    self.parse_expression(iterator, token),
+                ])
+            }
+            Some(Token::Heading2) => {
+                let token = iterator.next();
+
+                Expression::Vec(vec![
+                    Expression::Text(String::from("##")),
+                    self.parse_expression(iterator, token),
+                ])
+            }
+            Some(Token::Heading3) => {
+                let token = iterator.next();
+
+                Expression::Vec(vec![
+                    Expression::Text(String::from("###")),
+                    self.parse_expression(iterator, token),
+                ])
+            }
+            Some(Token::OrderedListItem(num)) => {
+                let token = iterator.next();
+
+                Expression::Vec(vec![
+                    Expression::Text(num.to_string()),
+                    self.parse_expression(iterator, token),
+                ])
+            }
+            Some(Token::NewLine) => Expression::None,
+            None => {
+                let token = iterator.next();
+                self.parse_expression(iterator, token)
+            }
+        }
+    }
+
+    fn parse_vec(
+        &mut self,
+        iterator: &mut dyn Iterator<Item = Token>,
+        next: Option<Token>,
+        children: Expression,
+    ) -> Expression {
+        match next {
+            Some(token) => {
+                let mut expressions = vec![
+                    Expression::None,
+                    self.parse_expression(iterator, Some(token)),
+                ];
+
+                if (expressions.len() == 2 && expressions[1] == Expression::None)
+                    || expressions.len() == 1
+                {
+                    children
+                } else {
+                    expressions[0] = children;
+                    Expression::Vec(expressions)
                 }
             }
-            Some(_) => {
-                let token = iterator.next();
-                Self::parse_expression(iterator.borrow_mut(), token)
-            }
-            None => Expression::Text(String::new()),
+            None => children,
         }
     }
 
     fn parse_children(
+        &mut self,
         mut tokens: Vec<Token>,
         left_count: u32,
         right_count: u32,
@@ -174,20 +209,26 @@ impl Parser {
         let mut iterator = tokens.into_iter();
         let current = iterator.next();
 
-        match (left_count, right_count) {
-            (3..=u32::MAX, 3..=u32::MAX) => Expression::BoldItalic(Box::new(
-                Self::parse_expression(iterator.borrow_mut(), current),
-            )),
-            (2..=u32::MAX, 2..=u32::MAX) => Expression::Bold(Box::new(Self::parse_expression(
-                iterator.borrow_mut(),
-                current,
-            ))),
-            (1..=u32::MAX, 1..=u32::MAX) => Expression::Italic(Box::new(Self::parse_expression(
-                iterator.borrow_mut(),
-                current,
-            ))),
-            (_, _) => Self::parse_expression(iterator.borrow_mut(), current),
+        if current.is_none() {
+            return Expression::None;
         }
+
+        let expression = match (left_count, right_count) {
+            (3..=u32::MAX, 3..=u32::MAX) => Expression::BoldItalic(Box::new(
+                self.parse_expression(iterator.borrow_mut(), current),
+            )),
+            (2..=u32::MAX, 2..=u32::MAX) => Expression::Bold(Box::new(
+                self.parse_expression(iterator.borrow_mut(), current),
+            )),
+            (1..=u32::MAX, 1..=u32::MAX) => Expression::Italic(Box::new(
+                self.parse_expression(iterator.borrow_mut(), current),
+            )),
+            (_, _) => self.parse_expression(iterator.borrow_mut(), current),
+        };
+
+        println!("{:?}", expression);
+
+        expression
     }
 
     fn append_string(tokens: &mut Vec<Token>, string: String, count: usize) {
@@ -210,6 +251,7 @@ impl Parser {
         if let Some(first_token) = tokens.first_mut() {
             if let Token::Word(content) = first_token {
                 *first_token = Token::Word(string.repeat(count) + content);
+                println!("prepended");
             } else {
                 tokens.rotate_right(1);
                 tokens[0] = Token::Word(string.repeat(count));
@@ -225,6 +267,7 @@ pub enum Expression {
     Bold(Box<Expression>),
     BoldItalic(Box<Expression>),
     Text(String),
+    None,
 }
 
 #[derive(Debug, PartialEq)]
@@ -249,8 +292,8 @@ mod tests {
     fn parses_tokens() {
         let statements = setup_parser(String::from(
             "# **something**
-## something
-### else
+    ## something
+    ### else
     _something_
     **_something else_**",
         ));
@@ -316,8 +359,8 @@ mod tests {
     fn check_overflow() {
         let statements = setup_parser(String::from(
             "**something*
-    *something**
-    ***something**",
+*something**
+***something**",
         ));
 
         assert_eq!(

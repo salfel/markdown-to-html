@@ -1,30 +1,25 @@
 pub struct Lexer {
-    lines: Vec<String>,
+    content: String,
 }
 
 const MARKERS: &[char] = &['*', '_'];
 
 impl Lexer {
     pub fn new(input: String) -> Self {
-        Lexer {
-            lines: input.lines().map(|line| line.to_string()).collect(),
-        }
+        Lexer { content: input }
     }
 
-    pub fn get_tokens(self) -> Vec<Vec<Token>> {
-        let mut lines: Vec<Vec<Token>> = vec![];
+    pub fn get_tokens(self) -> Vec<Token> {
+        let mut tokens: Vec<Token> = vec![];
 
-        for line in self.lines {
-            let mut tokens: Vec<Token> = vec![];
-
+        for line in self.content.lines() {
             for token in line.split(' ').filter(|token| !token.is_empty()) {
                 Self::parse_word(&mut tokens, token);
             }
-
-            lines.push(tokens);
+            tokens.push(Token::NewLine);
         }
 
-        lines
+        tokens
     }
 
     fn parse_word(tokens: &mut Vec<Token>, token: &str) {
@@ -91,6 +86,7 @@ impl Lexer {
 
 #[derive(PartialEq, Debug)]
 pub enum Token {
+    NewLine,
     Heading1,
     Heading2,
     Heading3,
@@ -116,22 +112,22 @@ mod tests {
         assert_eq!(
             tokens,
             vec![
-                vec![
-                    Token::Heading1,
-                    Token::Asterisk(2),
-                    Token::Word("something".to_string()),
-                    Token::Asterisk(2),
-                ],
-                vec![Token::Heading2, Token::Heading3],
-                vec![
-                    Token::Heading1,
-                    Token::Asterisk(2),
-                    Token::Underscore(2),
-                    Token::Word("something".to_string()),
-                    Token::Underscore(2),
-                    Token::Asterisk(2),
-                    Token::Word("else".to_string()),
-                ]
+                Token::Heading1,
+                Token::Asterisk(2),
+                Token::Word("something".to_string()),
+                Token::Asterisk(2),
+                Token::NewLine,
+                Token::Heading2,
+                Token::Heading3,
+                Token::NewLine,
+                Token::Heading1,
+                Token::Asterisk(2),
+                Token::Underscore(2),
+                Token::Word("something".to_string()),
+                Token::Underscore(2),
+                Token::Asterisk(2),
+                Token::Word("else".to_string()),
+                Token::NewLine
             ]
         );
     }
@@ -145,11 +141,12 @@ mod tests {
 
         assert_eq!(
             tokens,
-            vec![vec![
+            vec![
                 Token::OrderedListItem(1),
                 Token::OrderedListItem(2),
-                Token::OrderedListItem(3)
-            ]]
+                Token::OrderedListItem(3),
+                Token::NewLine
+            ]
         )
     }
 }
