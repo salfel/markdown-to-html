@@ -42,6 +42,13 @@ impl Parser {
                         iterator.borrow_mut(),
                         Some(Token::Underscore(count)),
                     )),
+                    Token::OrderedListItem(num) => Statement::OrderedList((
+                        num,
+                        Self::parse_expression(
+                            iterator.borrow_mut(),
+                            Some(Token::OrderedListItem(num)),
+                        ),
+                    )),
                     Token::Word(content) => Statement::Plain(Self::parse_expression(
                         iterator.borrow_mut(),
                         Some(Token::Word(content)),
@@ -138,15 +145,7 @@ impl Parser {
                     None => Expression::Text(tokens.join(" ")),
                 }
             }
-            Some(Token::Heading1) => {
-                let token = iterator.next();
-                Self::parse_expression(iterator.borrow_mut(), token)
-            }
-            Some(Token::Heading2) => {
-                let token = iterator.next();
-                Self::parse_expression(iterator.borrow_mut(), token)
-            }
-            Some(Token::Heading3) => {
+            Some(_) => {
                 let token = iterator.next();
                 Self::parse_expression(iterator.borrow_mut(), token)
             }
@@ -233,6 +232,7 @@ pub enum Statement {
     Heading1(Expression),
     Heading2(Expression),
     Heading3(Expression),
+    OrderedList((u32, Expression)),
     Plain(Expression),
 }
 
@@ -334,5 +334,23 @@ mod tests {
                 ))))),
             ]
         )
+    }
+
+    #[test]
+    fn parses_list() {
+        let statements = setup_parser(String::from(
+            "1. something
+2. something
+3 something",
+        ));
+
+        assert_eq!(
+            statements,
+            vec![
+                Statement::OrderedList((1, Expression::Text(String::from("something")))),
+                Statement::OrderedList((2, Expression::Text(String::from("something")))),
+                Statement::Plain(Expression::Text(String::from("3 something")))
+            ],
+        );
     }
 }

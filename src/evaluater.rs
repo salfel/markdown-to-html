@@ -26,6 +26,9 @@ impl Evaluator {
                 Statement::Heading3(expression) => {
                     format!("<h3>{}</h3>", Self::eval_expression(expression))
                 }
+                Statement::OrderedList((_, expression)) => {
+                    format!("<li>{}</li>", Self::eval_expression(expression))
+                }
                 Statement::Plain(expression) => {
                     format!("<p>{}</p>", Self::eval_expression(expression))
                 }

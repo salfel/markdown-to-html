@@ -32,6 +32,10 @@ impl Lexer {
             "#" => tokens.push(Token::Heading1),
             "##" => tokens.push(Token::Heading2),
             "###" => tokens.push(Token::Heading3),
+            token if Self::is_ordered_list_item(token) => {
+                let number = token.trim_end_matches('.').parse().unwrap();
+                tokens.push(Token::OrderedListItem(number));
+            }
             content => {
                 let mut modifiers: Vec<(String, u32)> = vec![];
                 let mut last: char = ' ';
@@ -75,6 +79,14 @@ impl Lexer {
             }
         }
     }
+
+    fn is_ordered_list_item(token: &str) -> bool {
+        if !token.ends_with('.') {
+            false
+        } else {
+            token.trim_end_matches('.').parse::<u32>().is_ok()
+        }
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -82,6 +94,7 @@ pub enum Token {
     Heading1,
     Heading2,
     Heading3,
+    OrderedListItem(u32),
     Asterisk(u32),
     Underscore(u32),
     Word(String),
@@ -97,8 +110,8 @@ mod tests {
 ## ###
 # **__something__** else";
 
-        let tokenizer = Lexer::new(input.to_string());
-        let tokens = tokenizer.get_tokens();
+        let lexer = Lexer::new(input.to_string());
+        let tokens = lexer.get_tokens();
 
         assert_eq!(
             tokens,
@@ -121,5 +134,22 @@ mod tests {
                 ]
             ]
         );
+    }
+
+    #[test]
+    fn lexes_list() {
+        let lexer = Lexer::new(String::from("1. 2. 3."));
+        let tokens = lexer.get_tokens();
+
+        assert!(Lexer::is_ordered_list_item("1."));
+
+        assert_eq!(
+            tokens,
+            vec![vec![
+                Token::OrderedListItem(1),
+                Token::OrderedListItem(2),
+                Token::OrderedListItem(3)
+            ]]
+        )
     }
 }
