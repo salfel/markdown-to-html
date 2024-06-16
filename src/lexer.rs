@@ -27,6 +27,7 @@ impl Lexer {
             "#" => tokens.push(Token::Heading1),
             "##" => tokens.push(Token::Heading2),
             "###" => tokens.push(Token::Heading3),
+            "-" => tokens.push(Token::UnorderdListItem),
             token if Self::is_ordered_list_item(token) => {
                 let number = token.trim_end_matches('.').parse().unwrap();
                 tokens.push(Token::OrderedListItem(number));
@@ -91,6 +92,7 @@ pub enum Token {
     Heading2,
     Heading3,
     OrderedListItem(u32),
+    UnorderdListItem,
     Asterisk(u32),
     Underscore(u32),
     Word(String),
@@ -101,7 +103,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_tokens() {
+    fn lexes_tokens() {
         let input = "# **something**
 ## ###
 # **__something__** else";
@@ -147,6 +149,18 @@ mod tests {
                 Token::OrderedListItem(3),
                 Token::NewLine
             ]
-        )
+        );
+
+        let lexer = Lexer::new(String::from("- -"));
+        let tokens = lexer.get_tokens();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::UnorderdListItem,
+                Token::UnorderdListItem,
+                Token::NewLine
+            ]
+        );
     }
 }

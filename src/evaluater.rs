@@ -39,6 +39,8 @@ impl Evaluator {
             }
             Statement::OrderedList((num, expression)) => self.eval_ordered_list(num, expression),
 
+            Statement::UnorderedList(expression) => self.eval_unordered_list(expression),
+
             Statement::Plain(expression) => {
                 format!("<p>{}</p>", Self::eval_expression(expression))
             }
@@ -47,6 +49,32 @@ impl Evaluator {
 
     fn format_list_item(expression: Expression) -> String {
         format!("<li>{}</li>", Self::eval_expression(expression))
+    }
+
+    fn eval_unordered_list(&mut self, expression: Expression) -> String {
+        let mut expressions = vec![Self::format_list_item(expression)];
+        let mut next = None;
+
+        for statement in self.iterator.by_ref() {
+            match statement {
+                Statement::UnorderedList(expression) => {
+                    expressions.push(Self::format_list_item(expression));
+                }
+                _ => {
+                    next = Some(statement);
+                    break;
+                }
+            }
+        }
+
+        let mut content = format!("<ul>\n{}\n</ul>", expressions.join("\n"));
+
+        if let Some(statement) = next {
+            content.push('\n');
+            content.push_str(&self.match_statement(statement));
+        }
+
+        content
     }
 
     fn eval_ordered_list(&mut self, num: u32, expression: Expression) -> String {
@@ -198,5 +226,28 @@ plain
 3. second
 <h1>heading</h1>"
         )
+    }
+
+    #[test]
+    fn evaluates_unordered_list() {
+        let evaluator = Evaluator::new(String::from(
+            "- first
+- second
+# heading
+- third",
+        ));
+        let result = evaluator.eval();
+
+        assert_eq!(
+            result,
+            "<ul>
+<li>first</li>
+<li>second</li>
+</ul>
+<h1>heading</h1>
+<ul>
+<li>third</li>
+</ul>"
+        );
     }
 }

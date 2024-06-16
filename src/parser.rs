@@ -40,6 +40,9 @@ impl Parser {
                     num,
                     self.parse_expression(iterator.borrow_mut(), None),
                 )),
+                Token::UnorderdListItem => {
+                    Statement::UnorderedList(self.parse_expression(iterator.borrow_mut(), None))
+                }
                 Token::Word(content) => Statement::Plain(
                     self.parse_expression(iterator.borrow_mut(), Some(Token::Word(content))),
                 ),
@@ -150,6 +153,14 @@ impl Parser {
 
                 Expression::Vec(vec![
                     Expression::Text(num.to_string()),
+                    self.parse_expression(iterator, token),
+                ])
+            }
+            Some(Token::UnorderdListItem) => {
+                let token = iterator.next();
+
+                Expression::Vec(vec![
+                    Expression::Text(String::from("-")),
                     self.parse_expression(iterator, token),
                 ])
             }
@@ -273,6 +284,7 @@ pub enum Statement {
     Heading2(Expression),
     Heading3(Expression),
     OrderedList((u32, Expression)),
+    UnorderedList(Expression),
     Plain(Expression),
 }
 
@@ -391,6 +403,19 @@ mod tests {
                 Statement::OrderedList((2, Expression::Text(String::from("something")))),
                 Statement::Plain(Expression::Text(String::from("3 something")))
             ],
+        );
+
+        let statements = setup_parser(String::from(
+            "- something
+- something else",
+        ));
+
+        assert_eq!(
+            statements,
+            vec![
+                Statement::UnorderedList(Expression::Text(String::from("something"))),
+                Statement::UnorderedList(Expression::Text(String::from("something else")))
+            ]
         );
     }
 }
