@@ -13,7 +13,7 @@ impl Evaluator {
     }
 
     pub fn eval(self) -> String {
-        let mut body = String::new();
+        let mut statements = vec![];
 
         for statement in self.statements {
             let content = match statement {
@@ -31,10 +31,10 @@ impl Evaluator {
                 }
             };
 
-            body += &content;
+            statements.push(content);
         }
 
-        body
+        statements.join("\n")
     }
 
     pub fn eval_expression(expression: Expression) -> String {
@@ -84,7 +84,13 @@ plain
 
         assert_eq!(
             result,
-            "<h1>heading</h1><h2>heading2</h2><h3>heading3</h3><p>plain</p><h1><strong>heading</strong></h1><h1><i>heading</i></h1><p><strong><i>paragraph</i></strong></p>"
+            "<h1>heading</h1>
+<h2>heading2</h2>
+<h3>heading3</h3>
+<p>plain</p>
+<h1><strong>heading</strong></h1>
+<h1><i>heading</i></h1>
+<p><strong><i>paragraph</i></strong></p>"
         )
     }
 
