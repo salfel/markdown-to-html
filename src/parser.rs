@@ -226,8 +226,6 @@ impl Parser {
             (_, _) => self.parse_expression(iterator.borrow_mut(), current),
         };
 
-        println!("{:?}", expression);
-
         expression
     }
 
@@ -251,7 +249,6 @@ impl Parser {
         if let Some(first_token) = tokens.first_mut() {
             if let Token::Word(content) = first_token {
                 *first_token = Token::Word(string.repeat(count) + content);
-                println!("prepended");
             } else {
                 tokens.rotate_right(1);
                 tokens[0] = Token::Word(string.repeat(count));
