@@ -20,6 +20,12 @@ impl Evaluator {
                 Statement::Heading1(expression) => {
                     format!("<h1>{}</h1>", Self::eval_expression(expression))
                 }
+                Statement::Heading2(expression) => {
+                    format!("<h2>{}</h2>", Self::eval_expression(expression))
+                }
+                Statement::Heading3(expression) => {
+                    format!("<h3>{}</h3>", Self::eval_expression(expression))
+                }
                 Statement::Plain(expression) => {
                     format!("<p>{}</p>", Self::eval_expression(expression))
                 }
@@ -67,6 +73,8 @@ mod tests {
     fn evaluates_heading() {
         let evaluator = Evaluator::new(String::from(
             "# heading
+## heading2
+### heading3
 plain
 # **heading**
 # *heading*
@@ -76,7 +84,7 @@ plain
 
         assert_eq!(
             result,
-            "<h1>heading</h1><p>plain</p><h1><strong>heading</strong></h1><h1><i>heading</i></h1><p><strong><i>paragraph</i></strong></p>"
+            "<h1>heading</h1><h2>heading2</h2><h3>heading3</h3><p>plain</p><h1><strong>heading</strong></h1><h1><i>heading</i></h1><p><strong><i>paragraph</i></strong></p>"
         )
     }
 

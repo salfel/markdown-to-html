@@ -26,6 +26,14 @@ impl Parser {
                         iterator.borrow_mut(),
                         Some(Token::Heading1),
                     )),
+                    Token::Heading2 => Statement::Heading2(Self::parse_expression(
+                        iterator.borrow_mut(),
+                        Some(Token::Heading1),
+                    )),
+                    Token::Heading3 => Statement::Heading3(Self::parse_expression(
+                        iterator.borrow_mut(),
+                        Some(Token::Heading1),
+                    )),
                     Token::Asterisk(count) => Statement::Plain(Self::parse_expression(
                         iterator.borrow_mut(),
                         Some(Token::Asterisk(count)),
@@ -134,6 +142,14 @@ impl Parser {
                 let token = iterator.next();
                 Self::parse_expression(iterator.borrow_mut(), token)
             }
+            Some(Token::Heading2) => {
+                let token = iterator.next();
+                Self::parse_expression(iterator.borrow_mut(), token)
+            }
+            Some(Token::Heading3) => {
+                let token = iterator.next();
+                Self::parse_expression(iterator.borrow_mut(), token)
+            }
             None => Expression::Text(String::new()),
         }
     }
@@ -215,6 +231,8 @@ pub enum Expression {
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     Heading1(Expression),
+    Heading2(Expression),
+    Heading3(Expression),
     Plain(Expression),
 }
 
@@ -231,6 +249,8 @@ mod tests {
     fn parses_tokens() {
         let statements = setup_parser(String::from(
             "# **something**
+## something
+### else
     _something_
     **_something else_**",
         ));
@@ -241,6 +261,8 @@ mod tests {
                 Statement::Heading1(Expression::Bold(Box::new(Expression::Text(String::from(
                     "something"
                 ))))),
+                Statement::Heading2(Expression::Text(String::from("something"))),
+                Statement::Heading3(Expression::Text(String::from("else"))),
                 Statement::Plain(Expression::Italic(Box::new(Expression::Text(
                     String::from("something")
                 )))),

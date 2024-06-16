@@ -30,6 +30,8 @@ impl Lexer {
     fn parse_word(tokens: &mut Vec<Token>, token: &str) {
         match token {
             "#" => tokens.push(Token::Heading1),
+            "##" => tokens.push(Token::Heading2),
+            "###" => tokens.push(Token::Heading3),
             content => {
                 let mut modifiers: Vec<(String, u32)> = vec![];
                 let mut last: char = ' ';
@@ -78,6 +80,8 @@ impl Lexer {
 #[derive(PartialEq, Debug)]
 pub enum Token {
     Heading1,
+    Heading2,
+    Heading3,
     Asterisk(u32),
     Underscore(u32),
     Word(String),
@@ -90,6 +94,7 @@ mod tests {
     #[test]
     fn parses_tokens() {
         let input = "# **something**
+## ###
 # **__something__** else";
 
         let tokenizer = Lexer::new(input.to_string());
@@ -104,6 +109,7 @@ mod tests {
                     Token::Word("something".to_string()),
                     Token::Asterisk(2),
                 ],
+                vec![Token::Heading2, Token::Heading3],
                 vec![
                     Token::Heading1,
                     Token::Asterisk(2),
