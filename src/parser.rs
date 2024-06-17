@@ -20,32 +20,26 @@ impl Parser {
         let mut iterator = self.tokens.take().unwrap().into_iter();
 
         while let Some(value) = iterator.next() {
+            let iterator = iterator.borrow_mut();
             let statement = match value {
-                Token::Heading1 => {
-                    Statement::Heading1(self.parse_expression(iterator.borrow_mut(), None))
+                Token::Heading1 => Statement::Heading1(self.parse_expression(iterator, None)),
+                Token::Heading2 => Statement::Heading2(self.parse_expression(iterator, None)),
+                Token::Heading3 => Statement::Heading3(self.parse_expression(iterator, None)),
+                Token::Asterisk(count) => {
+                    Statement::Plain(self.parse_expression(iterator, Some(Token::Asterisk(count))))
                 }
-                Token::Heading2 => {
-                    Statement::Heading2(self.parse_expression(iterator.borrow_mut(), None))
-                }
-                Token::Heading3 => {
-                    Statement::Heading3(self.parse_expression(iterator.borrow_mut(), None))
-                }
-                Token::Asterisk(count) => Statement::Plain(
-                    self.parse_expression(iterator.borrow_mut(), Some(Token::Asterisk(count))),
-                ),
                 Token::Underscore(count) => Statement::Plain(
-                    self.parse_expression(iterator.borrow_mut(), Some(Token::Underscore(count))),
+                    self.parse_expression(iterator, Some(Token::Underscore(count))),
                 ),
-                Token::OrderedListItem(num) => Statement::OrderedList((
-                    num,
-                    self.parse_expression(iterator.borrow_mut(), None),
-                )),
-                Token::UnorderdListItem => {
-                    Statement::UnorderedList(self.parse_expression(iterator.borrow_mut(), None))
+                Token::OrderedListItem(num) => {
+                    Statement::OrderedList((num, self.parse_expression(iterator, None)))
                 }
-                Token::Word(content) => Statement::Plain(
-                    self.parse_expression(iterator.borrow_mut(), Some(Token::Word(content))),
-                ),
+                Token::UnorderdListItem => {
+                    Statement::UnorderedList(self.parse_expression(iterator, None))
+                }
+                Token::Word(content) => {
+                    Statement::Plain(self.parse_expression(iterator, Some(Token::Word(content))))
+                }
                 Token::NewLine => continue,
             };
 
@@ -81,7 +75,7 @@ impl Parser {
                 let next = iterator.next();
                 let children = self.parse_children(tokens, left_count, right_count, "*");
 
-                self.parse_vec(iterator, next, children)
+                self.wrap_in_vec(iterator, next, children)
             }
             Some(Token::Underscore(left_count)) => {
                 let mut tokens = vec![];
@@ -103,7 +97,7 @@ impl Parser {
                 let next = iterator.next();
                 let children = self.parse_children(tokens, left_count, right_count, "_");
 
-                self.parse_vec(iterator, next, children)
+                self.wrap_in_vec(iterator, next, children)
             }
             Some(Token::Word(content)) => {
                 let mut tokens = vec![content];
@@ -122,57 +116,28 @@ impl Parser {
                     }
                 }
 
-                self.parse_vec(iterator, next, Expression::Text(tokens.join(" ")))
+                self.wrap_in_vec(iterator, next, Expression::Text(tokens.join(" ")))
             }
-            Some(Token::Heading1) => {
-                let token = iterator.next();
-
-                Expression::Vec(vec![
-                    Expression::Text(String::from("#")),
-                    self.parse_expression(iterator, token),
-                ])
-            }
-            Some(Token::Heading2) => {
-                let token = iterator.next();
-
-                Expression::Vec(vec![
-                    Expression::Text(String::from("##")),
-                    self.parse_expression(iterator, token),
-                ])
-            }
-            Some(Token::Heading3) => {
-                let token = iterator.next();
-
-                Expression::Vec(vec![
-                    Expression::Text(String::from("###")),
-                    self.parse_expression(iterator, token),
-                ])
-            }
+            Some(Token::Heading1) => self.combine_expressions(iterator, "#"),
+            Some(Token::Heading2) => self.combine_expressions(iterator, "##"),
+            Some(Token::Heading3) => self.combine_expressions(iterator, "###"),
+            Some(Token::UnorderdListItem) => self.combine_expressions(iterator, "-"),
             Some(Token::OrderedListItem(num)) => {
-                let token = iterator.next();
-
-                Expression::Vec(vec![
-                    Expression::Text(num.to_string()),
-                    self.parse_expression(iterator, token),
-                ])
-            }
-            Some(Token::UnorderdListItem) => {
-                let token = iterator.next();
-
-                Expression::Vec(vec![
-                    Expression::Text(String::from("-")),
-                    self.parse_expression(iterator, token),
-                ])
+                self.combine_expressions(iterator, &num.to_string())
             }
             Some(Token::NewLine) => Expression::None,
             None => {
                 let token = iterator.next();
-                self.parse_expression(iterator, token)
+                if token.is_none() {
+                    Expression::None
+                } else {
+                    self.parse_expression(iterator, token)
+                }
             }
         }
     }
 
-    fn parse_vec(
+    fn wrap_in_vec(
         &mut self,
         iterator: &mut dyn Iterator<Item = Token>,
         next: Option<Token>,
@@ -240,31 +205,44 @@ impl Parser {
         expression
     }
 
-    fn append_string(tokens: &mut Vec<Token>, string: String, count: usize) {
+    fn append_string(tokens: &mut Vec<Token>, string_to_append: String, count: usize) {
         if count == 0 {
             return;
         }
         if let Some(last_token) = tokens.last_mut() {
             if let Token::Word(content) = last_token {
-                *last_token = Token::Word(content.to_string() + &string.repeat(count));
+                *last_token = Token::Word(content.to_string() + &string_to_append.repeat(count));
             } else {
-                tokens.push(Token::Word(string.repeat(count)));
+                tokens.push(Token::Word(string_to_append.repeat(count)));
             }
         }
     }
 
-    fn prepend_string(tokens: &mut [Token], string: String, count: usize) {
+    fn prepend_string(tokens: &mut [Token], string_to_preprend: String, count: usize) {
         if count == 0 {
             return;
         }
         if let Some(first_token) = tokens.first_mut() {
             if let Token::Word(content) = first_token {
-                *first_token = Token::Word(string.repeat(count) + content);
+                *first_token = Token::Word(string_to_preprend.repeat(count) + content);
             } else {
                 tokens.rotate_right(1);
-                tokens[0] = Token::Word(string.repeat(count));
+                tokens[0] = Token::Word(string_to_preprend.repeat(count));
             }
         }
+    }
+
+    fn combine_expressions(
+        &mut self,
+        iterator: &mut dyn Iterator<Item = Token>,
+        string: &str,
+    ) -> Expression {
+        let token = iterator.next();
+
+        Expression::Vec(vec![
+            Expression::Text(String::from(string)),
+            self.parse_expression(iterator, token),
+        ])
     }
 }
 

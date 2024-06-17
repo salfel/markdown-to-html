@@ -2,8 +2,6 @@ pub struct Lexer {
     content: String,
 }
 
-const MARKERS: &[char] = &['*', '_'];
-
 impl Lexer {
     pub fn new(input: String) -> Self {
         Lexer { content: input }
@@ -37,26 +35,22 @@ impl Lexer {
                 let mut last: char = ' ';
 
                 for char in content.chars() {
-                    // insert word into modifiers
-                    if !MARKERS.contains(&char) {
-                        last = char;
-                        let value = modifiers.last_mut();
-                        if let Some(token) = value {
+                    if !['*', '_'].contains(&char) {
+                        if let Some(token) = modifiers.last_mut() {
                             if token.1 == 0 {
-                                token.0 += &char.to_string();
+                                token.0.push_str(&char.to_string());
                             } else {
                                 modifiers.push((char.to_string(), 0));
                             }
                         } else {
                             modifiers.push((char.to_string(), 0));
                         }
+                        last = char;
                         continue;
                     }
 
-                    // insert modifiers into vec
                     if char == last {
-                        let value = modifiers.last_mut();
-                        if let Some(modifier) = value {
+                        if let Some(modifier) = modifiers.last_mut() {
                             *modifier = (char.to_string(), modifier.1 + 1);
                         }
                     } else {
@@ -67,8 +61,8 @@ impl Lexer {
 
                 for modifier in modifiers {
                     tokens.push(match modifier {
-                        (char, count) if char == *"*" => Token::Asterisk(count),
-                        (char, count) if char == *"_" => Token::Underscore(count),
+                        (char, count) if char == "*" => Token::Asterisk(count),
+                        (char, count) if char == "_" => Token::Underscore(count),
                         (word, _) => Token::Word(word),
                     });
                 }
