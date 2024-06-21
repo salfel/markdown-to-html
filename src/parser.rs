@@ -67,34 +67,28 @@ impl Parser {
         for token in tokens {
             match token {
                 Token::Word(word) => {
-                    let last = expressions.last_mut();
-                    if let Some(Expression::Text(last_text)) = last {
-                        *last_text += &word;
-                    } else {
-                        expressions.push(Expression::Text(word));
-                    }
+                    Self::append_to_last(&mut expressions, word);
                 }
                 Token::WhiteSpace(count) => {
-                    let last = expressions.last_mut();
-                    if let Some(Expression::Text(last_text)) = last {
-                        *last_text += &" ".repeat(count);
-                    } else {
-                        expressions.push(Expression::Text(" ".repeat(count)))
-                    }
+                    Self::append_to_last(&mut expressions, " ".repeat(count));
                 }
                 Token::Heading(count) => {
-                    let last = expressions.last_mut();
-                    if let Some(Expression::Text(last_text)) = last {
-                        *last_text += &"#".repeat(count);
-                    } else {
-                        expressions.push(Expression::Text("#".repeat(count)));
-                    }
+                    Self::append_to_last(&mut expressions, "#".repeat(count));
                 }
                 Token::NewLine => break,
             }
         }
 
         Self::tidy_expressions(expressions)
+    }
+
+    fn append_to_last(expressions: &mut Vec<Expression>, string: String) {
+        let last = expressions.last_mut();
+        if let Some(Expression::Text(last_text)) = last {
+            *last_text += &string;
+        } else {
+            expressions.push(Expression::Text(string));
+        }
     }
 
     fn prepare_lines(iterator: &mut dyn Iterator<Item = Token>) -> Vec<Vec<Token>> {
