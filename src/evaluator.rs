@@ -37,6 +37,21 @@ impl Evaluator {
     pub fn evaluate_expression(expression: Expression) -> String {
         match expression {
             Expression::Text(text) => text,
+            Expression::Bold(expression) => {
+                format!(
+                    "<strong>{}</strong>",
+                    Self::evaluate_expression(*expression)
+                )
+            }
+            Expression::Italic(expression) => {
+                format!("<i>{}</i>", Self::evaluate_expression(*expression))
+            }
+            Expression::BoldItalic(expression) => {
+                format!(
+                    "<strong><i>{}</i></strong>",
+                    Self::evaluate_expression(*expression)
+                )
+            }
             Expression::Vec(expressions) => {
                 let mut output = String::new();
 
@@ -64,5 +79,19 @@ mod tests {
         let output = evaluator.evaluate();
 
         assert_eq!(output, "<p>Hello, World!</p><h2>Hi there</h2><p>#Hi</p>");
+    }
+
+    #[test]
+    fn evaluates_bold_italic() {
+        let evaluator = Evaluator::new(String::from(
+            "*Hi* **there**
+# *Hi there**",
+        ));
+        let output = evaluator.evaluate();
+
+        assert_eq!(
+            output,
+            "<p><i>Hi</i> <strong>there</strong></p><h1><i>Hi there</i>*</h1>"
+        )
     }
 }

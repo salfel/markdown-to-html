@@ -63,11 +63,48 @@ impl Parser {
 
     fn parse_expression(tokens: Vec<Token>) -> Expression {
         let mut expressions = Vec::new();
+        let mut iterator = tokens.into_iter();
 
-        for token in tokens {
+        while let Some(token) = iterator.next() {
             match token {
                 Token::Word(word) => {
                     Self::append_to_last(&mut expressions, word);
+                }
+                Token::Asterisk(left_count) => {
+                    let mut tokens = Vec::new();
+                    let mut right_count = 0;
+
+                    for token in iterator.by_ref() {
+                        match token {
+                            Token::Asterisk(count) => {
+                                right_count = count;
+                                break;
+                            }
+                            token => tokens.push(token),
+                        }
+                    }
+
+                    if left_count > right_count {
+                        expressions.push(Expression::Text("*".repeat(left_count - right_count)));
+                    }
+
+                    let expression = match (left_count, right_count) {
+                        (3..=usize::MAX, 3..=usize::MAX) => {
+                            Expression::BoldItalic(Box::new(Self::parse_expression(tokens)))
+                        }
+                        (2..=usize::MAX, 2..=usize::MAX) => {
+                            Expression::Bold(Box::new(Self::parse_expression(tokens)))
+                        }
+                        (1..=usize::MAX, 1..=usize::MAX) => {
+                            Expression::Italic(Box::new(Self::parse_expression(tokens)))
+                        }
+                        _ => Expression::Text("*".repeat(left_count + right_count)),
+                    };
+                    expressions.push(expression);
+
+                    if right_count > left_count {
+                        expressions.push(Expression::Text("*".repeat(right_count - left_count)));
+                    }
                 }
                 Token::WhiteSpace(count) => {
                     Self::append_to_last(&mut expressions, " ".repeat(count));
@@ -134,6 +171,9 @@ pub enum Statement {
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Vec(Vec<Expression>),
+    Bold(Box<Expression>),
+    Italic(Box<Expression>),
+    BoldItalic(Box<Expression>),
     Text(String),
 }
 
@@ -153,7 +193,31 @@ mod tests {
             statements,
             vec![
                 Statement::Heading(2, Expression::Text("Hello".to_string())),
-                Statement::Plain(Expression::Text("#Hi".to_string()))
+                Statement::Plain(Expression::Text("#Hi".to_string())),
+            ]
+        )
+    }
+
+    #[test]
+    fn parses_bold_italic() {
+        let parser = Parser::new(String::from(
+            "*Hi* **there**
+***Hello**",
+        ));
+        let statements = parser.parse();
+
+        assert_eq!(
+            statements,
+            vec![
+                Statement::Plain(Expression::Vec(vec![
+                    Expression::Italic(Box::new(Expression::Text("Hi".to_string()))),
+                    Expression::Text(" ".to_string()),
+                    Expression::Bold(Box::new(Expression::Text("there".to_string())))
+                ])),
+                Statement::Plain(Expression::Vec(vec![
+                    Expression::Text("*".to_string()),
+                    Expression::Bold(Box::new(Expression::Text("Hello".to_string())))
+                ]))
             ]
         )
     }
