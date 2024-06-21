@@ -1,10 +1,18 @@
-use crate::lexer::Token;
+use crate::lexer::{Lexer, Token};
 
-pub struct Parser {}
+pub struct Parser {
+    tokens: Vec<Token>,
+}
 
 impl Parser {
-    pub fn parse(tokens: Vec<Token>) -> Vec<Statement> {
-        let lines = Self::prepare_lines(&mut tokens.into_iter());
+    pub fn new(input: String) -> Parser {
+        let lexer = Lexer::new();
+        let tokens = lexer.tokenize(input);
+        Parser { tokens }
+    }
+
+    pub fn parse(self) -> Vec<Statement> {
+        let lines = Self::prepare_lines(&mut self.tokens.into_iter());
         let mut statements = Vec::new();
 
         for line in lines {
@@ -138,16 +146,14 @@ pub enum Expression {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lexer::Lexer;
 
     #[test]
     fn parses_heading() {
-        let lexer = Lexer::new();
-        let tokens = lexer.tokenize(String::from(
+        let parser = Parser::new(String::from(
             "## Hello
 #Hi",
         ));
-        let statements = Parser::parse(tokens);
+        let statements = parser.parse();
 
         assert_eq!(
             statements,

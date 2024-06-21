@@ -1,12 +1,21 @@
-use crate::parser::{Expression, Statement};
+use crate::parser::{Expression, Parser, Statement};
 
-pub struct Evaluator {}
+pub struct Evaluator {
+    statements: Vec<Statement>,
+}
 
 impl Evaluator {
-    pub fn evaluate(statements: Vec<Statement>) -> String {
+    pub fn new(input: String) -> Evaluator {
+        let parser = Parser::new(input);
+        let statements = parser.parse();
+
+        Evaluator { statements }
+    }
+
+    pub fn evaluate(self) -> String {
         let mut output = String::new();
 
-        for statement in statements {
+        for statement in self.statements {
             let evaluated = match statement {
                 Statement::Heading(count, expression) => format!(
                     "<h{}>{}</h{}>",
@@ -44,22 +53,15 @@ impl Evaluator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{lexer::Lexer, parser::Parser};
-
-    fn get_output(input: &str) -> String {
-        let lexer = Lexer::new();
-        let tokens = lexer.tokenize(input.to_string());
-        let statements = Parser::parse(tokens);
-        Evaluator::evaluate(statements)
-    }
 
     #[test]
     fn test_evaluate() {
-        let output = get_output(
+        let evaluator = Evaluator::new(String::from(
             "Hello, World!
 ## Hi there
 #Hi",
-        );
+        ));
+        let output = evaluator.evaluate();
 
         assert_eq!(output, "<p>Hello, World!</p><h2>Hi there</h2><p>#Hi</p>");
     }
