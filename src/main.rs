@@ -1,5 +1,7 @@
 use std::{fs, process};
 
+pub mod lexer;
+
 fn main() {
     let filepath = "./input.md";
     let contents = get_contents(filepath);
