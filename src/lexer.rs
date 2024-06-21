@@ -13,21 +13,23 @@ impl Lexer {
         Lexer { tokens: Vec::new() }
     }
 
-    pub fn tokenize(&mut self, contents: String) -> Vec<Token> {
-        let mut tokens = Vec::new();
+    pub fn tokenize(mut self, contents: String) -> Vec<Token> {
         for char in contents.chars() {
             match char {
-                '\n' => tokens.push(Token::NewLine),
-                _ => tokens.push(Token::Word(char.to_string())),
+                '\n' => self.tokens.push(Token::NewLine),
+                '#' => self.tokens.push(Token::Heading(1)),
+                ' ' => self.tokens.push(Token::WhiteSpace(1)),
+                '*' => self.tokens.push(Token::Asterisk(1)),
+                _ => self.tokens.push(Token::Word(char.to_string())),
             }
         }
 
-        self.combine_tokens(tokens)
+        self.combine_tokens()
     }
 
-    pub fn combine_tokens(&mut self, tokens: Vec<Token>) -> Vec<Token> {
-        let mut combined_tokens = Vec::new();
-        let iterator = tokens.into_iter();
+    pub fn combine_tokens(self) -> Vec<Token> {
+        let mut combined_tokens: Vec<Token> = Vec::new();
+        let iterator = self.tokens.into_iter();
 
         for token in iterator {
             let last = combined_tokens.last_mut();
@@ -35,6 +37,15 @@ impl Lexer {
             match (last, token) {
                 (Some(Token::Word(last_word)), Token::Word(word)) => {
                     *last_word += &word;
+                }
+                (Some(Token::Heading(last_count)), Token::Heading(count)) => {
+                    *last_count += count;
+                }
+                (Some(Token::Asterisk(last_count)), Token::Asterisk(count)) => {
+                    *last_count += count;
+                }
+                (Some(Token::WhiteSpace(last_count)), Token::WhiteSpace(count)) => {
+                    *last_count += count;
                 }
                 (_, token) => combined_tokens.push(token),
             }
@@ -47,6 +58,9 @@ impl Lexer {
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Word(String),
+    Heading(u32),
+    WhiteSpace(u32),
+    Asterisk(u32),
     NewLine,
 }
 
@@ -56,9 +70,23 @@ mod tests {
 
     #[test]
     fn parses_word() {
-        let mut lexer = Lexer::new();
-        let tokens = lexer.tokenize("Hello".to_string());
+        let lexer = Lexer::new();
+        let tokens = lexer.tokenize(String::from(
+            "Hello
+## Hi  **",
+        ));
 
-        assert_eq!(tokens, vec![Token::Word("Hello".to_string())]);
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Word("Hello".to_string()),
+                Token::NewLine,
+                Token::Heading(2),
+                Token::WhiteSpace(1),
+                Token::Word("Hi".to_string()),
+                Token::WhiteSpace(2),
+                Token::Asterisk(2)
+            ]
+        );
     }
 }
