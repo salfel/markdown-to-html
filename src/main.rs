@@ -1,5 +1,6 @@
 use std::{fs, process};
 
+pub mod evaluator;
 pub mod lexer;
 pub mod parser;
 
