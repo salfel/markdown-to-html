@@ -19,7 +19,6 @@ impl Lexer {
                 '\n' => self.tokens.push(Token::NewLine),
                 '#' => self.tokens.push(Token::Heading(1)),
                 ' ' => self.tokens.push(Token::WhiteSpace(1)),
-                '*' => self.tokens.push(Token::Asterisk(1)),
                 _ => self.tokens.push(Token::Word(char.to_string())),
             }
         }
@@ -41,9 +40,6 @@ impl Lexer {
                 (Some(Token::Heading(last_count)), Token::Heading(count)) => {
                     *last_count += count;
                 }
-                (Some(Token::Asterisk(last_count)), Token::Asterisk(count)) => {
-                    *last_count += count;
-                }
                 (Some(Token::WhiteSpace(last_count)), Token::WhiteSpace(count)) => {
                     *last_count += count;
                 }
@@ -58,9 +54,8 @@ impl Lexer {
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Word(String),
-    Heading(u32),
-    WhiteSpace(u32),
-    Asterisk(u32),
+    Heading(usize),
+    WhiteSpace(usize),
     NewLine,
 }
 
@@ -73,7 +68,7 @@ mod tests {
         let lexer = Lexer::new();
         let tokens = lexer.tokenize(String::from(
             "Hello
-## Hi  **",
+## Hi",
         ));
 
         assert_eq!(
@@ -84,8 +79,6 @@ mod tests {
                 Token::Heading(2),
                 Token::WhiteSpace(1),
                 Token::Word("Hi".to_string()),
-                Token::WhiteSpace(2),
-                Token::Asterisk(2)
             ]
         );
     }

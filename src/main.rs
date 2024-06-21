@@ -1,10 +1,11 @@
 use std::{fs, process};
 
 pub mod lexer;
+pub mod parser;
 
 fn main() {
     let filepath = "./input.md";
-    let contents = get_contents(filepath);
+    let _contents = get_contents(filepath);
 }
 
 fn get_contents(filepath: &str) -> String {
