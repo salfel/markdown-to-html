@@ -7,27 +7,31 @@ use std::io::stdin;
 use std::{fs, process};
 
 fn main() {
-    let filepath = read_filepath("Enter the filepath of your markdown file: ");
+    let filepath = read_filepath("Enter the filepath of your markdown file: ", "input.md");
     let contents = get_contents(&filepath);
 
     let evaluator = Evaluator::new(contents);
     let output = evaluator.evaluate();
 
-    let filepath = read_filepath("Enter the filepath of the output file: ");
+    let filepath = read_filepath("Enter the filepath of the output file: ", "index.html");
     write_to_file(&filepath, output);
 
     println!("Successfully wrote to index.html");
 }
 
-fn read_filepath(instruction: &str) -> String {
+fn read_filepath(instruction: &str, default: &str) -> String {
     let stdin = stdin();
     let mut filepath = String::new();
-    println!("{}", instruction);
+    println!("{instruction} Default: {default}");
     stdin
         .read_line(&mut filepath)
         .expect("Failed reading input");
 
-    filepath.trim().to_string()
+    if filepath.trim().is_empty() {
+        default.to_string()
+    } else {
+        filepath.trim().to_string()
+    }
 }
 
 fn write_to_file(filepath: &str, contents: String) {
