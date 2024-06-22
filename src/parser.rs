@@ -38,6 +38,33 @@ impl Parser {
                     Statement::Plain(expression)
                 }
             }
+            Some(Token::Number(number)) => {
+                let next = iterator.next();
+                match next {
+                    Some(Token::Dot) => {
+                        let next = iterator.next();
+                        let (is_list, expression) = Self::expect_whitespace(
+                            &mut iterator,
+                            next,
+                            Token::Word(format!("{}.", number)),
+                        );
+
+                        if is_list {
+                            Statement::OrderedListItem(number, expression)
+                        } else {
+                            Statement::Plain(expression)
+                        }
+                    }
+                    Some(token) => Statement::Plain(Self::parse_expression(Self::prepend_array(
+                        iterator.collect(),
+                        vec![Token::Number(number), token],
+                    ))),
+                    None => Statement::Plain(Self::parse_expression(Self::prepend_array(
+                        iterator.collect(),
+                        vec![Token::Number(number)],
+                    ))),
+                }
+            }
             Some(Token::Hyphen) => {
                 let next = iterator.next();
                 let (is_list, expression) =
@@ -111,6 +138,10 @@ impl Parser {
                 Token::Heading(count) => {
                     Self::append_to_last(&mut expressions, "#".repeat(count));
                 }
+                Token::Dot => {
+                    Self::append_to_last(&mut expressions, ".".to_string());
+                }
+                Token::Number(number) => Self::append_to_last(&mut expressions, number.to_string()),
                 Token::NewLine => break,
             }
         }
@@ -145,7 +176,7 @@ impl Parser {
                 )),
             ),
             None => (
-                true,
+                false,
                 Self::parse_expression(Self::prepend_array(iterator.collect(), vec![replacement])),
             ),
         }
@@ -197,6 +228,7 @@ impl Parser {
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     Heading(usize, Expression),
+    OrderedListItem(usize, Expression),
     UnorderedListItem(Expression),
     Plain(Expression),
 }
@@ -257,14 +289,24 @@ mod tests {
 
     #[test]
     fn parses_list() {
-        let parser = Parser::new(String::from("- Hi"));
+        let parser = Parser::new(String::from(
+            "- Hi
+1. Hello
+1.Hello
+1 Hi
+1.",
+        ));
         let statements = parser.parse();
 
         assert_eq!(
             statements,
-            vec![Statement::UnorderedListItem(Expression::Text(
-                "Hi".to_string()
-            ))]
+            vec![
+                Statement::UnorderedListItem(Expression::Text("Hi".to_string())),
+                Statement::OrderedListItem(1, Expression::Text("Hello".to_string())),
+                Statement::Plain(Expression::Text("1.Hello".to_string())),
+                Statement::Plain(Expression::Text("1 Hi".to_string())),
+                Statement::Plain(Expression::Text("1.".to_string())),
+            ]
         )
     }
 }

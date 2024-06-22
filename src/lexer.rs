@@ -21,6 +21,8 @@ impl Lexer {
                 ' ' => Token::WhiteSpace(1),
                 '*' => Token::Asterisk(1),
                 '-' => Token::Hyphen,
+                '.' => Token::Dot,
+                '0'..='9' => Token::Number(char.to_digit(10).unwrap() as usize),
                 _ => Token::Word(char.to_string()),
             };
             self.tokens.push(token);
@@ -63,6 +65,8 @@ pub enum Token {
     Heading(usize),
     WhiteSpace(usize),
     Asterisk(usize),
+    Number(usize),
+    Dot,
     Hyphen,
     NewLine,
 }
@@ -76,7 +80,7 @@ mod tests {
         let lexer = Lexer::new();
         let tokens = lexer.tokenize(String::from(
             "Hello
-## Hi** - -",
+## Hi** - - 1.",
         ));
 
         assert_eq!(
@@ -92,6 +96,9 @@ mod tests {
                 Token::Hyphen,
                 Token::WhiteSpace(1),
                 Token::Hyphen,
+                Token::WhiteSpace(1),
+                Token::Number(1),
+                Token::Dot,
             ]
         );
     }

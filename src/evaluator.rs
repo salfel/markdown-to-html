@@ -56,6 +56,43 @@ impl Evaluator {
 
                 format!("<ul>{}</ul>", items)
             }
+            Statement::OrderedListItem(number, expression) => {
+                let mut items = format!("<li>{}</li>", Self::evaluate_expression(expression));
+                let mut prev_number = number;
+
+                while let Some(statement) = iterator.next() {
+                    match statement {
+                        Statement::OrderedListItem(number, expression) => {
+                            if number != prev_number + 1 {
+                                return format!(
+                                    "<ol>{}</ol>{}. {}",
+                                    items,
+                                    number,
+                                    Self::evaluate_statement(
+                                        Statement::Plain(expression),
+                                        iterator
+                                    ),
+                                );
+                            }
+                            items.push_str(&format!(
+                                "<li>{}</li>",
+                                Self::evaluate_expression(expression)
+                            ));
+                            prev_number = number;
+                        }
+                        statement => {
+                            return format!(
+                                "<ol>{}</ol>{}",
+                                items,
+                                Self::evaluate_statement(statement, iterator),
+                            )
+                        }
+                    }
+                }
+
+                format!("<ul>{}</ul>", items)
+            }
+
             Statement::Plain(expression) => {
                 format!("<p>{}</p>", Self::evaluate_expression(expression))
             }
@@ -129,13 +166,16 @@ mod tests {
             "- Hi
 - there
 - # fake heading
-# heading",
+# heading
+1. first
+2. second
+4.fourth",
         ));
         let output = evaluator.evaluate();
 
         assert_eq!(
             output,
-            "<ul><li>Hi</li><li>there</li><li># fake heading</li></ul><h1>heading</h1>"
+            "<ul><li>Hi</li><li>there</li><li># fake heading</li></ul><h1>heading</h1><ol><li>first</li><li>second</li></ol><p>4.fourth</p>"
         )
     }
 }
