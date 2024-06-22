@@ -1,3 +1,5 @@
+use std::fmt::{self, Display};
+
 pub struct Lexer {
     tokens: Vec<Token>,
 }
@@ -15,20 +17,7 @@ impl Lexer {
 
     pub fn tokenize(mut self, contents: String) -> Vec<Token> {
         for char in contents.chars() {
-            let token = match char {
-                '\n' => Token::NewLine,
-                '#' => Token::Heading(1),
-                ' ' => Token::WhiteSpace(1),
-                '*' => Token::Asterisk(1),
-                '-' => Token::Hyphen,
-                '.' => Token::Dot,
-                '(' => Token::LParen,
-                ')' => Token::RParen,
-                '[' => Token::LBracket,
-                ']' => Token::RBracket,
-                '0'..='9' => Token::Number(char.to_digit(10).unwrap() as usize),
-                _ => Token::Word(char.to_string()),
-            };
+            let token = Token::new(char);
             self.tokens.push(token);
         }
 
@@ -77,6 +66,50 @@ pub enum Token {
     RParen,
     LBracket,
     RBracket,
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let output = match self {
+            Token::Word(word) => word.to_string(),
+            Token::Heading(count) => "#".repeat(*count),
+            Token::WhiteSpace(count) => " ".repeat(*count),
+            Token::Asterisk(count) => "*".repeat(*count),
+            Token::Number(number) => number.to_string(),
+            Token::Dot => ".".to_string(),
+            Token::Hyphen => "-".to_string(),
+            Token::NewLine => "\n".to_string(),
+            Token::LParen => "(".to_string(),
+            Token::RParen => ")".to_string(),
+            Token::LBracket => "[".to_string(),
+            Token::RBracket => "]".to_string(),
+        };
+
+        write!(f, "{}", output)
+    }
+}
+
+impl Token {
+    pub fn new(char: char) -> Token {
+        match char {
+            '\n' => Token::NewLine,
+            '#' => Token::Heading(1),
+            ' ' => Token::WhiteSpace(1),
+            '*' => Token::Asterisk(1),
+            '-' => Token::Hyphen,
+            '.' => Token::Dot,
+            '(' => Token::LParen,
+            ')' => Token::RParen,
+            '[' => Token::LBracket,
+            ']' => Token::RBracket,
+            '0'..='9' => Token::Number(char.to_digit(10).unwrap() as usize),
+            _ => Token::Word(char.to_string()),
+        }
+    }
+
+    pub fn to_word(&self) -> Token {
+        Token::Word(self.to_string())
+    }
 }
 
 #[cfg(test)]

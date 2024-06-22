@@ -147,7 +147,7 @@ impl Parser {
                     if !found {
                         expressions.push(Self::parse_expression(Self::prepend_array(
                             title_tokens,
-                            vec![Token::Word("[".to_string())],
+                            vec![Token::LBracket.to_word()],
                         )));
                         continue;
                     }
@@ -168,8 +168,8 @@ impl Parser {
 
                     if !found {
                         let mut tokens =
-                            Self::prepend_array(title_tokens, vec![Token::Word("[".to_string())]);
-                        tokens.push(Token::Word("]".to_string()));
+                            Self::prepend_array(title_tokens, vec![Token::LBracket.to_word()]);
+                        tokens.push(Token::RBracket.to_word());
                         if let Some(next) = next {
                             tokens.push(next);
                         }
@@ -183,29 +183,10 @@ impl Parser {
                         Box::new(Self::parse_expression(link_tokens)),
                     ));
                 }
-                Token::Hyphen => {
-                    Self::append_to_last(&mut expressions, "-".to_string());
-                }
-                Token::WhiteSpace(count) => {
-                    Self::append_to_last(&mut expressions, " ".repeat(count));
-                }
-                Token::Heading(count) => {
-                    Self::append_to_last(&mut expressions, "#".repeat(count));
-                }
-                Token::Dot => {
-                    Self::append_to_last(&mut expressions, ".".to_string());
-                }
-                Token::LParen => {
-                    Self::append_to_last(&mut expressions, "(".to_string());
-                }
-                Token::RParen => {
-                    Self::append_to_last(&mut expressions, ")".to_string());
-                }
-                Token::RBracket => {
-                    Self::append_to_last(&mut expressions, "]".to_string());
-                }
-                Token::Number(number) => Self::append_to_last(&mut expressions, number.to_string()),
                 Token::NewLine => break,
+                token => {
+                    Self::append_to_last(&mut expressions, token.to_string());
+                }
             }
         }
 
