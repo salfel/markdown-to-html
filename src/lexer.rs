@@ -44,6 +44,9 @@ impl Lexer {
                 (Some(Token::WhiteSpace(last_count)), Token::WhiteSpace(count)) => {
                     *last_count += count;
                 }
+                (Some(Token::Number(last_number)), Token::Number(number)) => {
+                    *last_number = *last_number * 10 + number;
+                }
                 (_, token) => combined_tokens.push(token),
             }
         }

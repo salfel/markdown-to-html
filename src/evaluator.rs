@@ -57,8 +57,18 @@ impl Evaluator {
                 format!("<ul>{}</ul>", items)
             }
             Statement::OrderedListItem(number, expression) => {
-                let mut items = format!("<li>{}</li>", Self::evaluate_expression(expression));
+                let mut items;
                 let mut prev_number = number;
+
+                if number != 1 {
+                    return format!(
+                        "{}. {}",
+                        number,
+                        Self::evaluate_statement(Statement::Plain(expression), iterator)
+                    );
+                } else {
+                    items = format!("<li>{}</li>", Self::evaluate_expression(expression))
+                }
 
                 while let Some(statement) = iterator.next() {
                     match statement {
