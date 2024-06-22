@@ -117,6 +117,13 @@ impl Evaluator {
                     Self::evaluate_expression(*expression)
                 )
             }
+            Expression::Link(title, link) => {
+                format!(
+                    "<a href=\"{}\">{}</a>",
+                    Self::evaluate_expression(*link),
+                    Self::evaluate_expression(*title)
+                )
+            }
             Expression::Vec(expressions) => {
                 let mut output = String::new();
 
@@ -177,5 +184,13 @@ mod tests {
             output,
             "<ul><li>Hi</li><li>there</li><li># fake heading</li></ul><h1>heading</h1><ol><li>first</li><li>second</li></ol><p>4.fourth</p>"
         )
+    }
+
+    #[test]
+    fn evaluates_link() {
+        let evaluator = Evaluator::new(String::from("[Google](https://google.com)"));
+        let output = evaluator.evaluate();
+
+        assert_eq!(output, "<p><a href=\"https://google.com\">Google</a></p>")
     }
 }

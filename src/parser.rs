@@ -129,6 +129,60 @@ impl Parser {
                         expressions.push(Expression::Text("*".repeat(right_count - left_count)));
                     }
                 }
+                Token::LBracket => {
+                    let mut title_tokens = Vec::new();
+                    let mut link_tokens = Vec::new();
+
+                    let mut found = false;
+                    for token in iterator.by_ref() {
+                        match token {
+                            Token::RBracket => {
+                                found = true;
+                                break;
+                            }
+                            token => title_tokens.push(token),
+                        }
+                    }
+
+                    if !found {
+                        expressions.push(Self::parse_expression(Self::prepend_array(
+                            title_tokens,
+                            vec![Token::Word("[".to_string())],
+                        )));
+                        continue;
+                    }
+
+                    let mut found = false;
+                    let next = iterator.next();
+                    if let Some(Token::LParen) = &next {
+                        for token in iterator.by_ref() {
+                            match token {
+                                Token::RParen => {
+                                    found = true;
+                                    break;
+                                }
+                                token => link_tokens.push(token),
+                            }
+                        }
+                    }
+
+                    if !found {
+                        let mut tokens =
+                            Self::prepend_array(title_tokens, vec![Token::Word("[".to_string())]);
+                        tokens.push(Token::Word("]".to_string()));
+                        if let Some(next) = next {
+                            tokens.push(next);
+                        }
+                        tokens.append(&mut link_tokens);
+                        expressions.push(Self::parse_expression(tokens));
+                        continue;
+                    }
+
+                    expressions.push(Expression::Link(
+                        Box::new(Self::parse_expression(title_tokens)),
+                        Box::new(Self::parse_expression(link_tokens)),
+                    ));
+                }
                 Token::Hyphen => {
                     Self::append_to_last(&mut expressions, "-".to_string());
                 }
@@ -140,6 +194,15 @@ impl Parser {
                 }
                 Token::Dot => {
                     Self::append_to_last(&mut expressions, ".".to_string());
+                }
+                Token::LParen => {
+                    Self::append_to_last(&mut expressions, "(".to_string());
+                }
+                Token::RParen => {
+                    Self::append_to_last(&mut expressions, ")".to_string());
+                }
+                Token::RBracket => {
+                    Self::append_to_last(&mut expressions, "]".to_string());
                 }
                 Token::Number(number) => Self::append_to_last(&mut expressions, number.to_string()),
                 Token::NewLine => break,
@@ -239,6 +302,7 @@ pub enum Expression {
     Bold(Box<Expression>),
     Italic(Box<Expression>),
     BoldItalic(Box<Expression>),
+    Link(Box<Expression>, Box<Expression>),
     Text(String),
 }
 
@@ -306,6 +370,34 @@ mod tests {
                 Statement::Plain(Expression::Text("1.Hello".to_string())),
                 Statement::Plain(Expression::Text("1 Hi".to_string())),
                 Statement::Plain(Expression::Text("1.".to_string())),
+            ]
+        )
+    }
+
+    #[test]
+    fn parses_link() {
+        let parser = Parser::new(String::from(
+            "[title](https://example.test)
+[title something else
+[title]https://example.test
+[title](https://example.test]
+[title]https://example.test",
+        ));
+        let statements = parser.parse();
+
+        assert_eq!(
+            statements,
+            vec![
+                Statement::Plain(Expression::Link(
+                    Box::new(Expression::Text("title".to_string())),
+                    Box::new(Expression::Text("https://example.test".to_string()))
+                )),
+                Statement::Plain(Expression::Text("[title something else".to_string())),
+                Statement::Plain(Expression::Text("[title]https://example.test".to_string())),
+                Statement::Plain(Expression::Text(
+                    "[title](https://example.test]".to_string()
+                )),
+                Statement::Plain(Expression::Text("[title]https://example.test".to_string())),
             ]
         )
     }

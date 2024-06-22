@@ -22,6 +22,10 @@ impl Lexer {
                 '*' => Token::Asterisk(1),
                 '-' => Token::Hyphen,
                 '.' => Token::Dot,
+                '(' => Token::LParen,
+                ')' => Token::RParen,
+                '[' => Token::LBracket,
+                ']' => Token::RBracket,
                 '0'..='9' => Token::Number(char.to_digit(10).unwrap() as usize),
                 _ => Token::Word(char.to_string()),
             };
@@ -69,6 +73,10 @@ pub enum Token {
     Dot,
     Hyphen,
     NewLine,
+    LParen,
+    RParen,
+    LBracket,
+    RBracket,
 }
 
 #[cfg(test)]
@@ -99,6 +107,26 @@ mod tests {
                 Token::WhiteSpace(1),
                 Token::Number(1),
                 Token::Dot,
+            ]
+        );
+    }
+
+    #[test]
+    fn lexes_list() {
+        let lexer = Lexer::new();
+        let tokens = lexer.tokenize(String::from("[title][https://example.test]"));
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::LBracket,
+                Token::Word("title".to_string()),
+                Token::RBracket,
+                Token::LBracket,
+                Token::Word("https://example".to_string()),
+                Token::Dot,
+                Token::Word("test".to_string()),
+                Token::RBracket
             ]
         );
     }
