@@ -29,28 +29,24 @@ impl Parser {
         match first {
             Some(Token::Heading(count)) => {
                 let next = iterator.next();
-                match next {
-                    Some(Token::WhiteSpace(white_space_count)) => {
-                        if white_space_count > 1 {
-                            Statement::Heading(
-                                count,
-                                Self::parse_expression(Self::prepend_array(
-                                    iterator.collect(),
-                                    vec![Token::WhiteSpace(white_space_count - 1)],
-                                )),
-                            )
-                        } else {
-                            Statement::Heading(count, Self::parse_expression(iterator.collect()))
-                        }
-                    }
-                    Some(token) => Statement::Plain(Self::parse_expression(Self::prepend_array(
-                        iterator.collect(),
-                        vec![Token::Heading(count), token],
-                    ))),
-                    None => Statement::Plain(Self::parse_expression(Self::prepend_array(
-                        iterator.collect(),
-                        vec![Token::Heading(count)],
-                    ))),
+                let (is_heading, expression) =
+                    Self::expect_whitespace(&mut iterator, next, Token::Heading(count));
+
+                if is_heading {
+                    Statement::Heading(count, expression)
+                } else {
+                    Statement::Plain(expression)
+                }
+            }
+            Some(Token::Hyphen) => {
+                let next = iterator.next();
+                let (is_list, expression) =
+                    Self::expect_whitespace(&mut iterator, next, Token::Hyphen);
+
+                if is_list {
+                    Statement::UnorderedListItem(expression)
+                } else {
+                    Statement::Plain(expression)
                 }
             }
             Some(token) => Statement::Plain(Self::parse_expression(Self::prepend_array(
@@ -106,6 +102,9 @@ impl Parser {
                         expressions.push(Expression::Text("*".repeat(right_count - left_count)));
                     }
                 }
+                Token::Hyphen => {
+                    Self::append_to_last(&mut expressions, "-".to_string());
+                }
                 Token::WhiteSpace(count) => {
                     Self::append_to_last(&mut expressions, " ".repeat(count));
                 }
@@ -117,6 +116,39 @@ impl Parser {
         }
 
         Self::tidy_expressions(expressions)
+    }
+
+    fn expect_whitespace(
+        iterator: &mut dyn Iterator<Item = Token>,
+        current: Option<Token>,
+        replacement: Token,
+    ) -> (bool, Expression) {
+        match current {
+            Some(Token::WhiteSpace(white_space_count)) => {
+                if white_space_count > 1 {
+                    (
+                        true,
+                        Self::parse_expression(Self::prepend_array(
+                            iterator.collect(),
+                            vec![Token::WhiteSpace(white_space_count - 1)],
+                        )),
+                    )
+                } else {
+                    (true, Self::parse_expression(iterator.collect()))
+                }
+            }
+            Some(token) => (
+                false,
+                Self::parse_expression(Self::prepend_array(
+                    iterator.collect(),
+                    vec![replacement, token],
+                )),
+            ),
+            None => (
+                true,
+                Self::parse_expression(Self::prepend_array(iterator.collect(), vec![replacement])),
+            ),
+        }
     }
 
     fn append_to_last(expressions: &mut Vec<Expression>, string: String) {
@@ -165,6 +197,7 @@ impl Parser {
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     Heading(usize, Expression),
+    UnorderedListItem(Expression),
     Plain(Expression),
 }
 
@@ -219,6 +252,19 @@ mod tests {
                     Expression::Bold(Box::new(Expression::Text("Hello".to_string())))
                 ]))
             ]
+        )
+    }
+
+    #[test]
+    fn parses_list() {
+        let parser = Parser::new(String::from("- Hi"));
+        let statements = parser.parse();
+
+        assert_eq!(
+            statements,
+            vec![Statement::UnorderedListItem(Expression::Text(
+                "Hi".to_string()
+            ))]
         )
     }
 }

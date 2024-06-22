@@ -15,13 +15,15 @@ impl Lexer {
 
     pub fn tokenize(mut self, contents: String) -> Vec<Token> {
         for char in contents.chars() {
-            match char {
-                '\n' => self.tokens.push(Token::NewLine),
-                '#' => self.tokens.push(Token::Heading(1)),
-                ' ' => self.tokens.push(Token::WhiteSpace(1)),
-                '*' => self.tokens.push(Token::Asterisk(1)),
-                _ => self.tokens.push(Token::Word(char.to_string())),
-            }
+            let token = match char {
+                '\n' => Token::NewLine,
+                '#' => Token::Heading(1),
+                ' ' => Token::WhiteSpace(1),
+                '*' => Token::Asterisk(1),
+                '-' => Token::Hyphen,
+                _ => Token::Word(char.to_string()),
+            };
+            self.tokens.push(token);
         }
 
         self.combine_tokens()
@@ -61,6 +63,7 @@ pub enum Token {
     Heading(usize),
     WhiteSpace(usize),
     Asterisk(usize),
+    Hyphen,
     NewLine,
 }
 
@@ -73,7 +76,7 @@ mod tests {
         let lexer = Lexer::new();
         let tokens = lexer.tokenize(String::from(
             "Hello
-## Hi**",
+## Hi** - -",
         ));
 
         assert_eq!(
@@ -84,7 +87,11 @@ mod tests {
                 Token::Heading(2),
                 Token::WhiteSpace(1),
                 Token::Word("Hi".to_string()),
-                Token::Asterisk(2)
+                Token::Asterisk(2),
+                Token::WhiteSpace(1),
+                Token::Hyphen,
+                Token::WhiteSpace(1),
+                Token::Hyphen,
             ]
         );
     }

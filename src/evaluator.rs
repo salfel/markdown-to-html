@@ -14,24 +14,52 @@ impl Evaluator {
 
     pub fn evaluate(self) -> String {
         let mut output = String::new();
+        let mut iterator = self.statements.into_iter();
 
-        for statement in self.statements {
-            let evaluated = match statement {
-                Statement::Heading(count, expression) => format!(
-                    "<h{}>{}</h{}>",
-                    count,
-                    Self::evaluate_expression(expression),
-                    count
-                ),
-                Statement::Plain(expression) => {
-                    format!("<p>{}</p>", Self::evaluate_expression(expression))
-                }
-            };
-
+        while let Some(statement) = iterator.by_ref().next() {
+            let evaluated = Self::evaluate_statement(statement, &mut iterator);
             output += &evaluated;
         }
 
         output
+    }
+
+    pub fn evaluate_statement(
+        statement: Statement,
+        iterator: &mut dyn Iterator<Item = Statement>,
+    ) -> String {
+        match statement {
+            Statement::Heading(count, expression) => format!(
+                "<h{}>{}</h{}>",
+                count,
+                Self::evaluate_expression(expression),
+                count
+            ),
+            Statement::UnorderedListItem(expression) => {
+                let mut items = format!("<li>{}</li>", Self::evaluate_expression(expression));
+
+                while let Some(statement) = iterator.next() {
+                    match statement {
+                        Statement::UnorderedListItem(expression) => items.push_str(&format!(
+                            "<li>{}</li>",
+                            Self::evaluate_expression(expression)
+                        )),
+                        statement => {
+                            return format!(
+                                "<ul>{}</ul>{}",
+                                items,
+                                Self::evaluate_statement(statement, iterator),
+                            )
+                        }
+                    }
+                }
+
+                format!("<ul>{}</ul>", items)
+            }
+            Statement::Plain(expression) => {
+                format!("<p>{}</p>", Self::evaluate_expression(expression))
+            }
+        }
     }
 
     pub fn evaluate_expression(expression: Expression) -> String {
@@ -92,6 +120,22 @@ mod tests {
         assert_eq!(
             output,
             "<p><i>Hi</i> <strong>there</strong></p><h1><i>Hi there</i>*</h1>"
+        )
+    }
+
+    #[test]
+    fn evaluates_list() {
+        let evaluator = Evaluator::new(String::from(
+            "- Hi
+- there
+- # fake heading
+# heading",
+        ));
+        let output = evaluator.evaluate();
+
+        assert_eq!(
+            output,
+            "<ul><li>Hi</li><li>there</li><li># fake heading</li></ul><h1>heading</h1>"
         )
     }
 }
