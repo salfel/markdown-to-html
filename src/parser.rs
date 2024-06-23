@@ -83,10 +83,100 @@ impl Parser {
             }
             Some(Token::Hyphen) => {
                 let token = iterator.next();
-                let tokens = iterator.collect();
+                let tokens: Vec<Token> = iterator.collect();
                 match token {
                     Some(Token::WhiteSpace(_)) => {
-                        Statement::UnorderedListItem(Self::parse_expression(tokens))
+                        let mut iterator = tokens.into_iter();
+
+                        match iterator.next() {
+                            Some(Token::LBracket) => {
+                                let next = iterator.next();
+                                let mut checked = false;
+
+                                match next {
+                                    Some(Token::WhiteSpace(1)) => {}
+                                    Some(Token::Word(word)) if word == "x" => {
+                                        checked = true;
+                                    }
+                                    Some(token) => {
+                                        return Statement::Plain(Self::parse_expression(
+                                            Self::prepend_array(
+                                                iterator.collect(),
+                                                vec![Token::LBracket, token],
+                                            ),
+                                        ));
+                                    }
+                                    None => {
+                                        return Statement::Plain(Self::parse_expression(vec![
+                                            Token::LBracket,
+                                        ]))
+                                    }
+                                }
+
+                                let checked_token = if checked {
+                                    Token::Word("x".to_string())
+                                } else {
+                                    Token::WhiteSpace(1)
+                                };
+
+                                match iterator.next() {
+                                    Some(Token::RBracket) => {}
+                                    Some(token) => {
+                                        return Statement::UnorderedListItem(
+                                            Self::parse_expression(Self::prepend_array(
+                                                iterator.collect(),
+                                                vec![Token::LBracket, checked_token, token],
+                                            )),
+                                        )
+                                    }
+                                    None => {
+                                        return Statement::UnorderedListItem(
+                                            Self::parse_expression(Self::prepend_array(
+                                                iterator.collect(),
+                                                vec![Token::LBracket, checked_token],
+                                            )),
+                                        )
+                                    }
+                                }
+
+                                match iterator.next() {
+                                    Some(Token::WhiteSpace(_)) => {}
+                                    Some(token) => {
+                                        return Statement::UnorderedListItem(
+                                            Self::parse_expression(Self::prepend_array(
+                                                iterator.collect(),
+                                                vec![
+                                                    Token::LBracket,
+                                                    checked_token,
+                                                    Token::RBracket,
+                                                    token,
+                                                ],
+                                            )),
+                                        )
+                                    }
+                                    None => {
+                                        return Statement::UnorderedListItem(
+                                            Self::parse_expression(vec![
+                                                Token::LBracket,
+                                                checked_token,
+                                                Token::RBracket,
+                                            ]),
+                                        )
+                                    }
+                                }
+
+                                Statement::TaskListItem(
+                                    checked,
+                                    Self::parse_expression(iterator.collect()),
+                                )
+                            }
+                            Some(token) => Statement::UnorderedListItem(Self::parse_expression(
+                                Self::prepend_array(iterator.collect(), vec![token]),
+                            )),
+                            None => Statement::UnorderedListItem(Self::parse_expression(
+                                iterator.collect(),
+                            )),
+                        }
                     }
                     Some(token) => Statement::Plain(Self::parse_expression(Self::prepend_array(
                         tokens,
@@ -273,6 +363,7 @@ pub enum Statement {
     Heading(usize, Expression),
     OrderedListItem(usize, Expression),
     UnorderedListItem(Expression),
+    TaskListItem(bool, Expression),
     Plain(Expression),
 }
 
@@ -378,6 +469,29 @@ mod tests {
                     "[title](https://example.test]".to_string()
                 )),
                 Statement::Plain(Expression::Text("[title]https://example.test".to_string())),
+            ]
+        )
+    }
+
+    #[test]
+    fn parses_task_list() {
+        let parsers = Parser::new(String::from(
+            "- [ ] Hi
+- [x] Hello
+- [ hi there
+- [x hi there
+- [x]hi there",
+        ));
+        let statements = parsers.parse();
+
+        assert_eq!(
+            statements,
+            vec![
+                Statement::TaskListItem(false, Expression::Text("Hi".to_string())),
+                Statement::TaskListItem(true, Expression::Text("Hello".to_string())),
+                Statement::UnorderedListItem(Expression::Text("[ hi there".to_string())),
+                Statement::UnorderedListItem(Expression::Text("[x hi there".to_string())),
+                Statement::UnorderedListItem(Expression::Text("[x]hi there".to_string())),
             ]
         )
     }

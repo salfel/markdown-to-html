@@ -103,6 +103,34 @@ impl Evaluator {
                 format!("<ul>{}</ul>", items)
             }
 
+            Statement::TaskListItem(checked, expression) => {
+                fn format_list_item(checked: bool, contents: String) -> String {
+                    let checked = if checked { "checked " } else { "" };
+                    format!(
+                        "<li><input type=\"checkbox\" {}disabled> {}</li>",
+                        checked, contents
+                    )
+                }
+                let mut items = format_list_item(checked, Self::evaluate_expression(expression));
+
+                while let Some(statement) = iterator.next() {
+                    match statement {
+                        Statement::TaskListItem(checked, expression) => items.push_str(
+                            &format_list_item(checked, Self::evaluate_expression(expression)),
+                        ),
+                        statement => {
+                            return format!(
+                                "<ul style=\"list-style-type: none\">{}</ul>{}",
+                                items,
+                                Self::evaluate_statement(statement, iterator),
+                            )
+                        }
+                    }
+                }
+
+                format!("<ul style=\"list-style-type: none\">{}</ul>", items)
+            }
+
             Statement::Plain(expression) => {
                 format!("<p>{}</p>", Self::evaluate_expression(expression))
             }
@@ -202,5 +230,19 @@ mod tests {
         let output = evaluator.evaluate();
 
         assert_eq!(output, "<p><a href=\"https://google.com\">Google</a></p>")
+    }
+
+    #[test]
+    fn evaluates_task_list() {
+        let evaluator = Evaluator::new(String::from(
+            "- [x] Hi
+- [ ] there",
+        ));
+        let output = evaluator.evaluate();
+
+        assert_eq!(
+            output,
+            "<ul style=\"list-style-type: none\"><li><input type=\"checkbox\" checked disabled> Hi</li><li><input type=\"checkbox\" disabled> there</li></ul>"
+        )
     }
 }
