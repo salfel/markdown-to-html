@@ -113,6 +113,24 @@ impl Token {
     pub fn to_word(&self) -> Token {
         Token::Word(self.to_string())
     }
+
+    pub fn expect(&self, expected: &Token) -> bool {
+        matches!(
+            (self, expected),
+            (Token::Word(_), Token::Word(_))
+                | (Token::Heading(_), Token::Heading(_))
+                | (Token::WhiteSpace(_), Token::WhiteSpace(_))
+                | (Token::Asterisk(_), Token::Asterisk(_))
+                | (Token::Number(_), Token::Number(_))
+                | (Token::Dot, Token::Dot)
+                | (Token::Hyphen, Token::Hyphen)
+                | (Token::NewLine, Token::NewLine)
+                | (Token::LParen, Token::LParen)
+                | (Token::RParen, Token::RParen)
+                | (Token::LBracket, Token::LBracket)
+                | (Token::RBracket, Token::RBracket)
+        )
+    }
 }
 
 #[cfg(test)]

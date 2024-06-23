@@ -39,30 +39,40 @@ impl Parser {
                 }
             }
             Some(Token::Number(number)) => {
-                let next = iterator.next();
+                let mut next = iterator.next();
                 match next {
-                    Some(Token::Dot) => {
-                        let next = iterator.next();
-                        let (is_list, expression) = Self::expect_whitespace(
-                            &mut iterator,
-                            next,
-                            Token::Word(format!("{}.", number)),
-                        );
-
-                        if is_list {
-                            Statement::OrderedListItem(number, expression)
-                        } else {
-                            Statement::Plain(expression)
+                    Some(token) => {
+                        if !token.expect(&Token::Dot) {
+                            return Self::get_plain_statement(
+                                &mut iterator,
+                                vec![Token::Number(number), token],
+                            );
                         }
+
+                        next = iterator.next();
+                        let next_token = match next {
+                            Some(token) => token,
+                            None => {
+                                return Self::get_plain_statement(
+                                    &mut iterator,
+                                    vec![Token::Number(number), Token::Dot],
+                                );
+                            }
+                        };
+
+                        if !next_token.expect(&Token::WhiteSpace(1)) {
+                            return Self::get_plain_statement(
+                                &mut iterator,
+                                vec![Token::Number(number), Token::Dot, next_token],
+                            );
+                        }
+
+                        Statement::OrderedListItem(
+                            number,
+                            Self::parse_expression(iterator.collect()),
+                        )
                     }
-                    Some(token) => Statement::Plain(Self::parse_expression(Self::prepend_array(
-                        iterator.collect(),
-                        vec![Token::Number(number), token],
-                    ))),
-                    None => Statement::Plain(Self::parse_expression(Self::prepend_array(
-                        iterator.collect(),
-                        vec![Token::Number(number)],
-                    ))),
+                    None => Self::get_plain_statement(&mut iterator, vec![Token::Number(number)]),
                 }
             }
             Some(Token::Hyphen) => {
@@ -82,6 +92,16 @@ impl Parser {
             ))),
             None => Statement::Plain(Expression::Text(String::new())),
         }
+    }
+
+    fn get_plain_statement(
+        iterator: &mut dyn Iterator<Item = Token>,
+        prepend: Vec<Token>,
+    ) -> Statement {
+        Statement::Plain(Self::parse_expression(Self::prepend_array(
+            iterator.collect(),
+            prepend,
+        )))
     }
 
     fn parse_expression(tokens: Vec<Token>) -> Expression {
@@ -152,8 +172,8 @@ impl Parser {
                         continue;
                     }
 
-                    let mut found = false;
                     let next = iterator.next();
+                    let mut found = false;
                     if let Some(Token::LParen) = &next {
                         for token in iterator.by_ref() {
                             match token {
