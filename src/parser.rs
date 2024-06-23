@@ -28,14 +28,20 @@ impl Parser {
 
         match first {
             Some(Token::Heading(count)) => {
-                let next = iterator.next();
-                let (is_heading, expression) =
-                    Self::expect_whitespace(&mut iterator, next, Token::Heading(count));
-
-                if is_heading {
-                    Statement::Heading(count, expression)
-                } else {
-                    Statement::Plain(expression)
+                let token = iterator.next();
+                let tokens = iterator.collect();
+                match token {
+                    Some(Token::WhiteSpace(_)) => {
+                        Statement::Heading(count, Self::parse_expression(tokens))
+                    }
+                    Some(token) => Statement::Plain(Self::parse_expression(Self::prepend_array(
+                        tokens,
+                        vec![Token::Heading(count), token],
+                    ))),
+                    None => Statement::Plain(Self::parse_expression(Self::prepend_array(
+                        tokens,
+                        vec![Token::Heading(count)],
+                    ))),
                 }
             }
             Some(Token::Number(number)) => {
@@ -76,14 +82,20 @@ impl Parser {
                 }
             }
             Some(Token::Hyphen) => {
-                let next = iterator.next();
-                let (is_list, expression) =
-                    Self::expect_whitespace(&mut iterator, next, Token::Hyphen);
-
-                if is_list {
-                    Statement::UnorderedListItem(expression)
-                } else {
-                    Statement::Plain(expression)
+                let token = iterator.next();
+                let tokens = iterator.collect();
+                match token {
+                    Some(Token::WhiteSpace(_)) => {
+                        Statement::UnorderedListItem(Self::parse_expression(tokens))
+                    }
+                    Some(token) => Statement::Plain(Self::parse_expression(Self::prepend_array(
+                        tokens,
+                        vec![Token::Hyphen, token],
+                    ))),
+                    None => Statement::Plain(Self::parse_expression(Self::prepend_array(
+                        tokens,
+                        vec![Token::Hyphen],
+                    ))),
                 }
             }
             Some(token) => Statement::Plain(Self::parse_expression(Self::prepend_array(
@@ -211,39 +223,6 @@ impl Parser {
         }
 
         Self::tidy_expressions(expressions)
-    }
-
-    fn expect_whitespace(
-        iterator: &mut dyn Iterator<Item = Token>,
-        current: Option<Token>,
-        replacement: Token,
-    ) -> (bool, Expression) {
-        match current {
-            Some(Token::WhiteSpace(white_space_count)) => {
-                if white_space_count > 1 {
-                    (
-                        true,
-                        Self::parse_expression(Self::prepend_array(
-                            iterator.collect(),
-                            vec![Token::WhiteSpace(white_space_count - 1)],
-                        )),
-                    )
-                } else {
-                    (true, Self::parse_expression(iterator.collect()))
-                }
-            }
-            Some(token) => (
-                false,
-                Self::parse_expression(Self::prepend_array(
-                    iterator.collect(),
-                    vec![replacement, token],
-                )),
-            ),
-            None => (
-                false,
-                Self::parse_expression(Self::prepend_array(iterator.collect(), vec![replacement])),
-            ),
-        }
     }
 
     fn append_to_last(expressions: &mut Vec<Expression>, string: String) {
